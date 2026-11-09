@@ -5,9 +5,10 @@ plugins {
 
 android {
     namespace = "com.ppp65isking.box"
-    // compileSdk 37: material3 1.5.0-beta02 (and its siblings) require it.
-    // targetSdk stays 36 (Play floor); minSdk stays 26.
-    compileSdk = 37
+    // compileSdk 36: the material3 1.5.0 line (Material 3 Expressive) needs
+    // compileSdk 37, whose platform is not downloadable in CI yet — see
+    // Theme.kt. targetSdk stays 36 (Play floor); minSdk stays 26.
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.ppp65isking.box"
@@ -59,10 +60,10 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.foundation:foundation")
 
-    // Material 3 Expressive lives on the 1.5.0 line (md3e-skill baseline
-    // 2026-10-23): pin it explicitly — the BOM's material3 is the stable
-    // 1.4.x line, which does not expose the expressive APIs.
-    implementation("androidx.compose.material3:material3:1.5.0-beta02")
+    // Material 3 comes from the BOM (stable 1.4.x line). Do NOT pin the
+    // 1.5.0 line (Material 3 Expressive): it drags the whole Compose stack
+    // to 1.12.0, which requires compileSdk 37, and the API-37 platform is
+    // not downloadable in CI yet — see Theme.kt.
     // Icons are not transitive since 1.4.0 — declare both explicitly.
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.material:material-icons-extended")

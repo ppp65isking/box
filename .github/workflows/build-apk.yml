@@ -32,8 +32,6 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
-          # API 37 is still a preview SDK: it only exists on the canary channel.
-          sdkmanager --channel=3 "platforms;android-37"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3

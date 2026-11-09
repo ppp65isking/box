@@ -3,18 +3,23 @@ package com.ppp65isking.box.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialExpressiveTheme
-import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.expressiveLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 // Box colors: orange, green, blue. NO purple anywhere — Anthony's call.
 // Primary = vivid orange, secondary = fresh green, tertiary = bright blue.
+//
+// NOTE: this used to be Material 3 Expressive (MaterialExpressiveTheme /
+// MotionScheme.expressive() / expressiveLightColorScheme on the material3
+// 1.5.0 line), but that line requires compileSdk 37 and the API-37 platform
+// is not downloadable in CI yet (not even on the canary channel), so the
+// build could never pass. Stable M3 keeps the same palette and the same big
+// rounded shapes — revisit Expressive once the API-37 platform ships.
 private val Orange = Color(0xFFF97316)
 private val OrangeLight = Color(0xFFFFB74D)
 private val Green = Color(0xFF16A34A)
@@ -22,7 +27,7 @@ private val GreenLight = Color(0xFF81C784)
 private val Blue = Color(0xFF2563EB)
 private val BlueLight = Color(0xFF64B5F6)
 
-private val BoxLightColors: ColorScheme = expressiveLightColorScheme().copy(
+private val BoxLightColors: ColorScheme = lightColorScheme(
     primary = Orange,
     onPrimary = Color.White,
     primaryContainer = Color(0xFFFFE0B2),
@@ -68,27 +73,22 @@ private val BoxDarkColors: ColorScheme = darkColorScheme(
     outlineVariant = Color(0xFF2E2823),
 )
 
-// Expressive shape scale: bigger, rounder corners than baseline M3.
+// Big, round shape scale — the expressive look, on stable shapes.
 private val BoxShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(16.dp),
     large = RoundedCornerShape(24.dp),
     extraLarge = RoundedCornerShape(32.dp),
-    largeIncreased = RoundedCornerShape(36.dp),
-    extraLargeIncreased = RoundedCornerShape(44.dp),
-    extraExtraLarge = RoundedCornerShape(56.dp),
 )
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BoxTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    MaterialExpressiveTheme(
+    MaterialTheme(
         colorScheme = if (darkTheme) BoxDarkColors else BoxLightColors,
-        motionScheme = MotionScheme.expressive(),
         shapes = BoxShapes,
         content = content,
     )

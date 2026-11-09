@@ -69,7 +69,7 @@ fun MoreScreen(onNavigate: (String) -> Unit) {
                 modifier = Modifier.padding(vertical = 8.dp),
             )
             Text(
-                text = "Box 1.0 — one hub for your apps. Built with Material 3 Expressive. " +
+                text = "Box 1.0 — one hub for your apps. Built with Material 3. " +
                     "Music plays through the same public YouTube Music endpoints as the " +
                     "TV app. Nothing in Box sends your data anywhere except the services " +
                     "you ask it to reach.",
