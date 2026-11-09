@@ -53,7 +53,7 @@ fun SetupScreen() {
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Icons in a floating pill that blurs what's under it",
+                        text = "Icons in a frosted floating pill",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

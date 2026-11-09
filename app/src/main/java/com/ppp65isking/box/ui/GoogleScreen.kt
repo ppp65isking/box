@@ -49,7 +49,9 @@ import com.ppp65isking.box.model.CalendarEvent
 import com.ppp65isking.box.model.DriveFile
 import com.ppp65isking.box.model.GmailMessage
 import com.ppp65isking.box.model.PhotoItem
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private enum class GoogleTab(val label: String) {
     MAIL("Mail"),
@@ -105,10 +107,12 @@ fun GoogleScreen() {
                 return@launch
             }
             state = when (currentTab) {
-                GoogleTab.MAIL -> when (val r = app.googleClient.messages(
-                    token,
-                    currentQuery.ifBlank { null },
-                )) {
+                GoogleTab.MAIL -> when (val r = withContext(Dispatchers.IO) {
+                    app.googleClient.messages(
+                        token,
+                        currentQuery.ifBlank { null },
+                    )
+                }) {
                     is GoogleClient.Result.Ok -> GoogleState.Mail(r.value)
                     is GoogleClient.Result.Unauthorized -> GoogleState.Error(
                         "Google said the sign-in is stale — connect again.",
@@ -117,7 +121,9 @@ fun GoogleScreen() {
                         "Couldn't load mail: ${r.message}",
                     )
                 }
-                GoogleTab.CALENDAR -> when (val r = app.googleClient.events(token)) {
+                GoogleTab.CALENDAR -> when (val r = withContext(Dispatchers.IO) {
+                    app.googleClient.events(token)
+                }) {
                     is GoogleClient.Result.Ok -> GoogleState.Events(r.value)
                     is GoogleClient.Result.Unauthorized -> GoogleState.Error(
                         "Google said the sign-in is stale — connect again.",
@@ -126,10 +132,12 @@ fun GoogleScreen() {
                         "Couldn't load events: ${r.message}",
                     )
                 }
-                GoogleTab.DRIVE -> when (val r = app.googleClient.driveFiles(
-                    token,
-                    currentFilter,
-                )) {
+                GoogleTab.DRIVE -> when (val r = withContext(Dispatchers.IO) {
+                    app.googleClient.driveFiles(
+                        token,
+                        currentFilter,
+                    )
+                }) {
                     is GoogleClient.Result.Ok -> GoogleState.Files(r.value)
                     is GoogleClient.Result.Unauthorized -> GoogleState.Error(
                         "Google said the sign-in is stale — connect again.",
@@ -138,7 +146,9 @@ fun GoogleScreen() {
                         "Couldn't load files: ${r.message}",
                     )
                 }
-                GoogleTab.PHOTOS -> when (val r = app.googleClient.photos(token)) {
+                GoogleTab.PHOTOS -> when (val r = withContext(Dispatchers.IO) {
+                    app.googleClient.photos(token)
+                }) {
                     is GoogleClient.Result.Ok -> GoogleState.Photos(r.value)
                     is GoogleClient.Result.Unauthorized -> GoogleState.Error(
                         "Google said the sign-in is stale — connect again.",

@@ -44,7 +44,9 @@ import com.ppp65isking.box.data.launchOAuth
 import com.ppp65isking.box.model.DiscordChannel
 import com.ppp65isking.box.model.DiscordGuild
 import com.ppp65isking.box.model.DiscordMessage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private sealed interface DiscordListState<out T> {
     data object Loading : DiscordListState<Nothing>
@@ -96,7 +98,9 @@ fun DiscordScreen() {
                 )
                 return@launch
             }
-            guildsState = when (val r = app.discordClient.guilds(token)) {
+            guildsState = when (val r = withContext(Dispatchers.IO) {
+                app.discordClient.guilds(token)
+            }) {
                 is DiscordClient.Result.Ok -> DiscordListState.Ok(r.value)
                 is DiscordClient.Result.Unauthorized -> DiscordListState.Error(
                     "Discord said the sign-in is stale — connect again.",
@@ -117,7 +121,9 @@ fun DiscordScreen() {
         channelsState = DiscordListState.Loading
         scope.launch {
             val token = app.accessToken(OAuthService.DISCORD) ?: return@launch
-            channelsState = when (val r = app.discordClient.channels(token, guild.id)) {
+            channelsState = when (val r = withContext(Dispatchers.IO) {
+                app.discordClient.channels(token, guild.id)
+            }) {
                 is DiscordClient.Result.Ok -> DiscordListState.Ok(r.value)
                 is DiscordClient.Result.Unauthorized -> DiscordListState.Error(
                     "Discord said the sign-in is stale — connect again.",
@@ -137,7 +143,9 @@ fun DiscordScreen() {
         messagesState = DiscordListState.Loading
         scope.launch {
             val token = app.accessToken(OAuthService.DISCORD) ?: return@launch
-            messagesState = when (val r = app.discordClient.messages(token, channel.id)) {
+            messagesState = when (val r = withContext(Dispatchers.IO) {
+                app.discordClient.messages(token, channel.id)
+            }) {
                 is DiscordClient.Result.Ok -> DiscordListState.Ok(r.value)
                 is DiscordClient.Result.Unauthorized -> DiscordListState.Error(
                     "Discord said the sign-in is stale — connect again.",

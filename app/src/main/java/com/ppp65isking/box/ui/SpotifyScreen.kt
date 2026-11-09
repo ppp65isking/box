@@ -49,7 +49,9 @@ import com.ppp65isking.box.model.SpotifyNowPlaying
 import com.ppp65isking.box.model.SpotifyPlaylist
 import com.ppp65isking.box.model.SpotifyProfile
 import com.ppp65isking.box.model.SpotifyTrack
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private data class SpotifyData(
     val profile: SpotifyProfile?,
@@ -93,7 +95,9 @@ fun SpotifyScreen() {
                 )
                 return@launch
             }
-            val profile = when (val r = app.spotifyClient.me(token)) {
+            val profile = when (val r = withContext(Dispatchers.IO) {
+                app.spotifyClient.me(token)
+            }) {
                 is SpotifyClient.Result.Ok -> r.value
                 is SpotifyClient.Result.Unauthorized -> {
                     state = SpotifyState.Error(
@@ -107,15 +111,21 @@ fun SpotifyScreen() {
                 }
                 is SpotifyClient.Result.PlaybackUnavailable -> null
             }
-            val playlists = when (val r = app.spotifyClient.playlists(token)) {
+            val playlists = when (val r = withContext(Dispatchers.IO) {
+                app.spotifyClient.playlists(token)
+            }) {
                 is SpotifyClient.Result.Ok -> r.value
                 else -> emptyList()
             }
-            val tracks = when (val r = app.spotifyClient.savedTracks(token)) {
+            val tracks = when (val r = withContext(Dispatchers.IO) {
+                app.spotifyClient.savedTracks(token)
+            }) {
                 is SpotifyClient.Result.Ok -> r.value
                 else -> emptyList()
             }
-            val nowPlaying = when (val r = app.spotifyClient.currentlyPlaying(token)) {
+            val nowPlaying = when (val r = withContext(Dispatchers.IO) {
+                app.spotifyClient.currentlyPlaying(token)
+            }) {
                 is SpotifyClient.Result.Ok -> r.value
                 else -> null
             }
@@ -129,10 +139,12 @@ fun SpotifyScreen() {
         playbackMessage = null
         scope.launch {
             val token = app.accessToken(OAuthService.SPOTIFY) ?: return@launch
-            val result = if (currentlyPlaying) {
-                app.spotifyClient.pause(token)
-            } else {
-                app.spotifyClient.play(token)
+            val result = withContext(Dispatchers.IO) {
+                if (currentlyPlaying) {
+                    app.spotifyClient.pause(token)
+                } else {
+                    app.spotifyClient.play(token)
+                }
             }
             when (result) {
                 is SpotifyClient.Result.Ok -> load()
