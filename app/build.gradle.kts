@@ -63,7 +63,9 @@ dependencies {
     // Material 3 comes from the BOM (stable 1.4.x line). Do NOT pin the
     // 1.5.0 line (Material 3 Expressive): it drags the whole Compose stack
     // to 1.12.0, which requires compileSdk 37, and the API-37 platform is
-    // not downloadable in CI yet — see Theme.kt.
+    // not downloadable in CI yet — see Theme.kt. NOTE: the BOM only pins
+    // versions — the artifact still needs declaring (no version here).
+    implementation("androidx.compose.material3:material3")
     // Icons are not transitive since 1.4.0 — declare both explicitly.
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.material:material-icons-extended")
