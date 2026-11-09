@@ -6,6 +6,7 @@ import com.ppp65isking.box.model.MsMailFull
 import com.ppp65isking.box.model.MsMailMessage
 import com.ppp65isking.box.model.MsMailPage
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
