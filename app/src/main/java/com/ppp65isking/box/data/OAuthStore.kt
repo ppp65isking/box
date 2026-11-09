@@ -97,11 +97,21 @@ class OAuthStore(context: Context) {
             prefs.edit().putString(KEY_PENDING_SERVICE, value).apply()
         }
 
+    /** The redirect URI the in-flight login used — the loopback URI for
+     *  Google (a fresh port per login), so the token exchange sends
+     *  exactly the URI the sign-in started with. */
+    var pendingRedirectUri: String?
+        get() = prefs.getString(KEY_PENDING_REDIRECT_URI, null)
+        set(value) {
+            prefs.edit().putString(KEY_PENDING_REDIRECT_URI, value).apply()
+        }
+
     fun clearPendingLogin() {
         prefs.edit()
             .remove(KEY_PKCE_VERIFIER)
             .remove(KEY_OAUTH_STATE)
             .remove(KEY_PENDING_SERVICE)
+            .remove(KEY_PENDING_REDIRECT_URI)
             .apply()
     }
 
@@ -109,5 +119,6 @@ class OAuthStore(context: Context) {
         private const val KEY_PKCE_VERIFIER = "pkce_verifier"
         private const val KEY_OAUTH_STATE = "oauth_state"
         private const val KEY_PENDING_SERVICE = "pending_service"
+        private const val KEY_PENDING_REDIRECT_URI = "pending_redirect_uri"
     }
 }

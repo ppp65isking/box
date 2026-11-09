@@ -43,7 +43,6 @@ import coil.compose.AsyncImage
 import com.ppp65isking.box.BoxApp
 import com.ppp65isking.box.data.GoogleClient
 import com.ppp65isking.box.data.OAuthService
-import com.ppp65isking.box.data.launchOAuth
 import com.ppp65isking.box.data.openUrl
 import com.ppp65isking.box.model.CalendarEvent
 import com.ppp65isking.box.model.DriveFile
@@ -175,7 +174,7 @@ fun GoogleScreen() {
                 configured = configured,
                 signedIn = signedIn,
                 accountLabel = accountLabel,
-                onConnect = { launchOAuth(context, OAuthService.GOOGLE, app.oauthStore) },
+                onConnect = { scope.launch { app.startGoogleLogin(context) } },
                 onSignOut = { app.signOut(OAuthService.GOOGLE) },
             )
             if (signedIn) {

@@ -1,11 +1,15 @@
 package com.ppp65isking.box
 
 import android.app.Application
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
 import com.ppp65isking.box.data.DiscordClient
 import com.ppp65isking.box.data.GoogleClient
 import com.ppp65isking.box.data.GitHubClient
 import com.ppp65isking.box.data.HealthConnectHelper
+import com.ppp65isking.box.data.LoopbackOAuthServer
 import com.ppp65isking.box.data.OAuthService
 import com.ppp65isking.box.data.OAuthStore
 import com.ppp65isking.box.data.RedditAuthStore
@@ -14,9 +18,9 @@ import com.ppp65isking.box.data.SmsRepository
 import com.ppp65isking.box.data.SpotifyClient
 import com.ppp65isking.box.data.UiPrefs
 import com.ppp65isking.box.data.WeatherClient
+import com.ppp65isking.box.data.buildAuthUrl
 import com.ppp65isking.box.data.ensureAccessToken
 import com.ppp65isking.box.data.exchangeCode
-import com.ppp65isking.box.data.googleRedirectScheme
 import com.ppp65isking.box.innertube.AuthStore
 import com.ppp65isking.box.innertube.InnerTubeClient
 import com.ppp65isking.box.innertube.StreamResolver
@@ -115,9 +119,7 @@ class BoxApp : Application() {
         }
 
     /**
-     * Handle the box://oauth/<service>?code=…&state=… redirect — or
-     * Google's reverse-DNS redirect
-     * (com.googleusercontent.apps.<number>:/oauth2redirect) — that
+     * Handle the box://oauth/<service>?code=…&state=… redirect that
      * comes back after a user signs in. Safe to call from onCreate and
      * onNewIntent. Validates the state (a mismatch means this redirect
      * did not come from a login Box started), exchanges the code for
@@ -125,57 +127,103 @@ class BoxApp : Application() {
      * Runs entirely on [oauthScope] — never on the main thread.
      */
     fun handleOAuthRedirect(uri: Uri) {
-        val service = when {
-            uri.scheme == "box" && uri.host == "oauth" ->
-                OAuthService.fromKey(uri.pathSegments.firstOrNull())
-            uri.scheme == googleRedirectScheme() &&
-                uri.path == "/oauth2redirect" -> OAuthService.GOOGLE
-            else -> return
-        } ?: return
+        if (uri.scheme != "box" || uri.host != "oauth") return
+        val service = OAuthService.fromKey(uri.pathSegments.firstOrNull())
+            ?: return
         val code = uri.getQueryParameter("code")
         val state = uri.getQueryParameter("state")
         val error = uri.getQueryParameter("error")
         oauthScope.launch {
-            if (error != null || code == null) {
-                // The user denied the sign-in, or the provider errored.
-                oauthStore.clearPendingLogin()
-                bumpOAuthVersion()
-                return@launch
-            }
-            if (state == null || state != oauthStore.oauthState) {
-                oauthStore.clearPendingLogin()
-                bumpOAuthVersion()
-                return@launch
-            }
-            val tokens = exchangeCode(service, code, oauthStore, okHttp)
-            oauthStore.clearPendingLogin()
-            if (tokens == null) {
-                bumpOAuthVersion()
-                return@launch
-            }
-            oauthStore.setTokens(
-                service = service,
-                accessToken = tokens.accessToken,
-                refreshToken = tokens.refreshToken,
-                expiresInSeconds = tokens.expiresInSeconds,
-            )
-            // Account label ("Signed in as …") from the profile endpoint.
-            val label = when (service) {
-                OAuthService.GOOGLE -> when (val r = googleClient.profile(tokens.accessToken)) {
-                    is GoogleClient.Result.Ok -> r.value.email ?: r.value.name
-                    else -> null
-                }
-                OAuthService.SPOTIFY -> when (val r = spotifyClient.me(tokens.accessToken)) {
-                    is SpotifyClient.Result.Ok -> r.value.email ?: r.value.displayName
-                    else -> null
-                }
-                OAuthService.DISCORD -> when (val r = discordClient.me(tokens.accessToken)) {
-                    is DiscordClient.Result.Ok -> r.value.email ?: r.value.username
-                    else -> null
-                }
-            }
-            if (label != null) oauthStore.setAccountLabel(service, label)
-            bumpOAuthVersion()
+            finishLogin(service, code, state, error)
         }
+    }
+
+    private var loopbackServer: LoopbackOAuthServer? = null
+
+    /**
+     * Google sign-in via a loopback redirect (see [LoopbackOAuthServer]):
+     * Desktop OAuth clients cannot register a redirect URI, so Google
+     * sends the browser to http://127.0.0.1:<port>/ and Box catches
+     * the code there. Binds the server, opens the sign-in page in a
+     * Custom Tab, and returns true. The tokens land through the same
+     * [finishLogin] as the box:// flow. Call from a coroutine.
+     */
+    suspend fun startGoogleLogin(context: Context): Boolean {
+        if (oauthStore.clientId(OAuthService.GOOGLE) == null) return false
+        loopbackServer?.stop()
+        val server = LoopbackOAuthServer { code, state, error ->
+            oauthScope.launch {
+                finishLogin(OAuthService.GOOGLE, code, state, error)
+            }
+        }
+        loopbackServer = server
+        val redirect = withContext(Dispatchers.IO) { server.bind() }
+        oauthStore.pendingRedirectUri = redirect
+        val url = buildAuthUrl(OAuthService.GOOGLE, oauthStore) ?: return false
+        oauthScope.launch(Dispatchers.IO) {
+            if (!server.serve()) {
+                // Nobody finished the login (closed tab / timed out).
+                oauthStore.clearPendingLogin()
+                bumpOAuthVersion()
+            }
+            if (loopbackServer === server) loopbackServer = null
+        }
+        val tabsIntent = CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .build()
+        tabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        tabsIntent.launchUrl(context, Uri.parse(url))
+        return true
+    }
+
+    /** Shared tail of every sign-in: validate state, exchange the code
+     *  for tokens, fetch the account label, bump [oauthVersion].
+     *  Runs on [oauthScope] — never on the main thread. */
+    private suspend fun finishLogin(
+        service: OAuthService,
+        code: String?,
+        state: String?,
+        error: String?,
+    ) {
+        if (error != null || code == null) {
+            // The user denied the sign-in, or the provider errored.
+            oauthStore.clearPendingLogin()
+            bumpOAuthVersion()
+            return
+        }
+        if (state == null || state != oauthStore.oauthState) {
+            oauthStore.clearPendingLogin()
+            bumpOAuthVersion()
+            return
+        }
+        val tokens = exchangeCode(service, code, oauthStore, okHttp)
+        oauthStore.clearPendingLogin()
+        if (tokens == null) {
+            bumpOAuthVersion()
+            return
+        }
+        oauthStore.setTokens(
+            service = service,
+            accessToken = tokens.accessToken,
+            refreshToken = tokens.refreshToken,
+            expiresInSeconds = tokens.expiresInSeconds,
+        )
+        // Account label ("Signed in as …") from the profile endpoint.
+        val label = when (service) {
+            OAuthService.GOOGLE -> when (val r = googleClient.profile(tokens.accessToken)) {
+                is GoogleClient.Result.Ok -> r.value.email ?: r.value.name
+                else -> null
+            }
+            OAuthService.SPOTIFY -> when (val r = spotifyClient.me(tokens.accessToken)) {
+                is SpotifyClient.Result.Ok -> r.value.email ?: r.value.displayName
+                else -> null
+            }
+            OAuthService.DISCORD -> when (val r = discordClient.me(tokens.accessToken)) {
+                is DiscordClient.Result.Ok -> r.value.email ?: r.value.username
+                else -> null
+            }
+        }
+        if (label != null) oauthStore.setAccountLabel(service, label)
+        bumpOAuthVersion()
     }
 }

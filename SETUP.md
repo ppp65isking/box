@@ -57,18 +57,17 @@ Steps:
 4. **Create the OAuth client** (Credentials → Create Credentials →
    OAuth client ID → application type **Desktop app**). Desktop apps
    need no client secret with PKCE. The create form asks for no
-   redirect — that is normal; it goes on the client's edit page next.
-5. Click into the client you just made and add the authorized
-   redirect URI **exactly**:
-   `com.googleusercontent.apps.217889708383:/oauth2redirect`
-   (Google refuses `box://…` here — custom schemes need a period in
-   them — so Box uses this reverse-DNS form built from the client
-   ID's number instead. If the client ID ever changes, this URI and
-   the matching intent-filter in `AndroidManifest.xml` change with it.)
-6. Copy the **Client ID** (the long `….apps.googleusercontent.com`
+   redirect, and the client's edit page has no redirect field either —
+   that is normal: Desktop clients cannot register a redirect URI at
+   all. Box instead uses a loopback redirect
+   (`http://127.0.0.1:<port>/`, a fresh port per sign-in), which
+   Google accepts for Desktop clients with no registration. There is
+   nothing to paste into the console for the redirect.
+5. Copy the **Client ID** (the long `….apps.googleusercontent.com`
    string — not the secret) and **give it to Cosmo once**. It goes in
    `OAuthConfig.kt` (`GOOGLE_CLIENT_ID`) and ships with the app.
-7. In Box, open **More → Google → Connect Google** and sign in.
+6. In Box, tap **Gmail** on Home to open the Google hub, then
+   **Connect Google** and sign in.
 
 Photos note: Google restricted the Photos Library API in 2025, so the
 list may only show photos the user picked for Box rather than the whole

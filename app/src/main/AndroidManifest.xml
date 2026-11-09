@@ -44,16 +44,6 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="box" android:host="oauth" />
             </intent-filter>
-            <!-- Google's redirect is the reverse-DNS scheme built from
-                 the Google client ID's number (Google refuses box://) —
-                 scheme only, the app checks the path itself. The number
-                 must match OAuthConfig.GOOGLE_CLIENT_ID. -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.googleusercontent.apps.217889708383" />
-            </intent-filter>
         </activity>
 
         <!-- Background playback: MediaSessionService keeps audio alive when
