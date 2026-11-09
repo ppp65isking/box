@@ -89,10 +89,4 @@ dependencies {
     // Custom Tabs — OAuth sign-in pages open in-app and redirect back
     // to box://oauth/<service>. Small, stable, no extra setup.
     implementation("androidx.browser:browser:1.8.0")
-
-    // Haze — real blur under the floating bottom bar (1.7.3, last 1.x
-    // stable). The bar blurs the content scrolling under it instead of
-    // sitting on a flat color. Needs no extra setup beyond the
-    // dependency; the bar is drawn with hazeEffect over a hazeSource.
-    implementation("dev.chrisbanes.haze:haze:1.7.3")
 }

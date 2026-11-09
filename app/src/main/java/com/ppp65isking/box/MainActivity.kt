@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -58,11 +59,6 @@ import com.ppp65isking.box.ui.SetupScreen
 import com.ppp65isking.box.ui.SmsScreen
 import com.ppp65isking.box.ui.SpotifyScreen
 import com.ppp65isking.box.ui.theme.BoxTheme
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 
 private enum class Destination(
     val label: String,
@@ -108,9 +104,6 @@ private fun BoxNav() {
     val context = LocalContext.current
     val app = context.applicationContext as BoxApp
     val floatingBar by app.uiPrefs.floatingBar.collectAsState()
-    // One Haze state for the whole nav: every screen registers as a
-    // blur source, and the floating bar blurs whatever scrolls under it.
-    val hazeState = rememberHazeState()
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { /* granted or not — playback still works, just silently */ }
@@ -132,8 +125,8 @@ private fun BoxNav() {
 
     Scaffold(
         // The floating bar is NOT a Scaffold bottom bar: it overlays the
-        // content (see below) so lists scroll underneath it and the blur
-        // has something to blur. Only the standard bar takes the slot.
+        // content (see below) so lists scroll underneath it. Only the
+        // standard bar takes the slot.
         bottomBar = {
             if (!floatingBar) {
                 NavigationBar {
@@ -156,12 +149,11 @@ private fun BoxNav() {
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            // The screens are the blur source. They fill the whole area,
-            // so content scrolls under the floating pill.
+            // The screens fill the whole area, so content scrolls under
+            // the floating pill.
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .hazeSource(state = hazeState),
+                    .fillMaxSize(),
             ) {
                 when (secondary) {
                     "github" -> GitHubScreen()
@@ -184,7 +176,6 @@ private fun BoxNav() {
                 FloatingIconBar(
                     selected = if (secondary == null) destination else null,
                     onSelect = { go(it) },
-                    hazeState = hazeState,
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
@@ -195,15 +186,19 @@ private fun BoxNav() {
 /**
  * Floating, icon-only bottom bar (Settings toggle, default on). A
  * detached pill with side and bottom margins and a shadow, so it reads
- * as floating above the content — and the content scrolling under it is
- * really blurred (Haze), not just covered by a flat color. Five icons,
- * no labels; the selected tab is the primary color.
+ * as floating above the content, with a frosted translucent fill so the
+ * content scrolling under it still shows through. Five icons, no
+ * labels; the selected tab is the primary color.
+ *
+ * Real blur was tried (Haze 1.7.3) and dropped: it needs compileSdk 37,
+ * and the API-37 platform is not downloadable in CI — the same wall
+ * that blocked Material 3 Expressive. If SDK 37 ever ships, swap the
+ * translucent fill for a real blur then.
  */
 @Composable
 private fun FloatingIconBar(
     selected: Destination?,
     onSelect: (Destination) -> Unit,
-    hazeState: HazeState,
     modifier: Modifier = Modifier,
 ) {
     val pillShape = RoundedCornerShape(28.dp)
@@ -213,14 +208,10 @@ private fun FloatingIconBar(
             .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
             .shadow(elevation = 12.dp, shape = pillShape)
             .clip(pillShape)
-            .hazeEffect(state = hazeState) {
-                blurRadius = 20.dp
-                // Frosted tint over the blur, so the pill reads on any
-                // background and the icons stay legible.
-                tint = HazeTint(
-                    MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f),
-                )
-            }
+            .background(
+                MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f),
+                pillShape,
+            )
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
