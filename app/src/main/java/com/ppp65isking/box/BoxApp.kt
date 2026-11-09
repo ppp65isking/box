@@ -21,7 +21,6 @@ import com.ppp65isking.box.data.SteamClient
 import com.ppp65isking.box.data.SteamStore
 import com.ppp65isking.box.data.UiPrefs
 import com.ppp65isking.box.data.WeatherClient
-import com.ppp65isking.box.data.ai.AiKeyStore
 import com.ppp65isking.box.data.ai.AiRouter
 import com.ppp65isking.box.data.ai.LiteRtModelManager
 import com.ppp65isking.box.data.buildAuthUrl
@@ -95,19 +94,16 @@ class BoxApp : Application() {
 
     val steamClient: SteamClient by lazy { SteamClient(okHttp) }
 
-    /** The user's own free cloud AI keys (Groq / Gemini / OpenRouter),
-     *  typed in on the AI settings screen. Same pattern as the Steam
-     *  key: on this device only, never embedded in the app or repo. */
-    val aiKeyStore: AiKeyStore by lazy { AiKeyStore(this) }
-
     /** The downloaded on-device AI model (Qwen 1.5B .litertlm). */
     val liteRtModelManager: LiteRtModelManager by lazy {
         LiteRtModelManager(this, okHttp)
     }
 
-    /** The AI router — one entry point for every AI feature. */
+    /** The AI router — one entry point for every AI feature.
+     *  No-signup-only chain: Nano → Qwen → Pollinations → Smart Reply
+     *  → plain list. No keys anywhere (see AiRouter). */
     val aiRouter: AiRouter by lazy {
-        AiRouter(this, okHttp, aiKeyStore, liteRtModelManager)
+        AiRouter(this, okHttp, liteRtModelManager)
     }
 
     private val oauthScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

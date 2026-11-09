@@ -68,6 +68,7 @@ import com.ppp65isking.box.data.HealthConnectHelper
 import com.ppp65isking.box.data.InstalledApp
 import com.ppp65isking.box.data.LaunchHistory
 import com.ppp65isking.box.data.ResolvedApp
+import com.ppp65isking.box.data.UsageStatsHelper
 import com.ppp65isking.box.data.WeatherClient
 import com.ppp65isking.box.data.hubForEntry
 import com.ppp65isking.box.data.hubForPackage
@@ -139,10 +140,39 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
         return ResolvedApp(entry, AppStatus.INSTALLED, installed.packageName, installed.icon)
     }
 
-    val filtered = remember(resolved, query, category) {
-        resolved.filter { item ->
+    // Most-used ordering (Settings → "Show most-used first"): needs
+    // the usage-access grant, re-checked on resume like Health
+    // Connect — the grant can appear while Box is in Settings.
+    // Declared before `filtered`, which reads these.
+    val mostUsedFirst by app.uiPrefs.mostUsedFirst.collectAsState()
+    var usageGranted by remember { mutableStateOf(false) }
+    var lastUsed by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
+    fun refreshUsage() {
+        scope.launch {
+            val granted = UsageStatsHelper.isGranted(context)
+            usageGranted = granted
+            lastUsed = if (granted) {
+                withContext(Dispatchers.IO) { UsageStatsHelper.lastUsedTimes(context) }
+            } else {
+                emptyMap()
+            }
+        }
+    }
+    OnResume { refreshUsage() }
+    LaunchedEffect(mostUsedFirst) { refreshUsage() }
+
+    val filtered = remember(resolved, query, category, mostUsedFirst, usageGranted, lastUsed) {
+        val base = resolved.filter { item ->
             (category == null || item.entry.category == category) &&
                 (query.isBlank() || item.entry.name.contains(query, ignoreCase = true))
+        }
+        if (mostUsedFirst && usageGranted) {
+            // Most-used first: last-used time, newest first. Apps with
+            // no usage data keep their catalog order at the end
+            // (sortedByDescending is stable).
+            base.sortedByDescending { lastUsed[it.packageName] ?: Long.MIN_VALUE }
+        } else {
+            base
         }
     }
 
@@ -210,8 +240,23 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
         } ?: openPlayStore(context, item.entry)
     }
 
-    val recentResolved = remember(recentPackages, installedByPackage) {
-        recentPackages.mapNotNull { installedByPackage[it] }
+    val recentResolved = remember(
+        recentPackages,
+        installedByPackage,
+        mostUsedFirst,
+        usageGranted,
+        lastUsed,
+    ) {
+        val fromHistory = recentPackages.mapNotNull { installedByPackage[it] }
+        if (!mostUsedFirst || !usageGranted) return@remember fromHistory
+        // Smarter from last-used data: Box launches first, then the
+        // most recently used apps fill the rest of the row.
+        val seen = fromHistory.map { it.packageName }.toMutableSet()
+        val topUsed = lastUsed.entries
+            .sortedByDescending { it.value }
+            .mapNotNull { installedByPackage[it.key] }
+            .filter { seen.add(it.packageName) }
+        (fromHistory + topUsed).take(8)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -379,6 +424,7 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
                         text = when {
                             query.isNotBlank() -> "Results"
                             currentCategory != null -> currentCategory.label
+                            mostUsedFirst && usageGranted -> "Most used"
                             else -> "All apps"
                         },
                         style = MaterialTheme.typography.titleMedium,

@@ -62,6 +62,11 @@ enum class OAuthService(
             "email",
             "profile",
             "https://www.googleapis.com/auth/gmail.readonly",
+            // Send: replying / composing needs its own scope — the
+            // old grant was read-only. Adding a scope means the user
+            // has to tap Connect again once (prompt=consent below
+            // re-asks for the full list); that is expected, not a bug.
+            "https://www.googleapis.com/auth/gmail.send",
             "https://www.googleapis.com/auth/calendar.readonly",
             "https://www.googleapis.com/auth/drive.readonly",
             "https://www.googleapis.com/auth/documents.readonly",

@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import com.ppp65isking.box.data.openApp
+import com.ppp65isking.box.data.openNotificationTap
 import com.ppp65isking.box.model.BoxNotification
 
 /** True when the user has granted Box notification-listener access. */
@@ -80,7 +81,9 @@ fun NotificationAccessCard(modifier: Modifier = Modifier) {
 }
 
 /** One notification row: app icon, app name + time, title, text.
- *  Tapping opens the app it came from. */
+ *  Tapping fires the notification's own tap intent when it has one
+ *  (opens the exact screen in the source app), and falls back to
+ *  launching the app when the intent is missing or expired. */
 @Composable
 fun NotificationRow(
     notification: BoxNotification,
@@ -91,7 +94,11 @@ fun NotificationRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { openApp(context, notification.packageName) }
+            .clickable {
+                if (!openNotificationTap(context, notification)) {
+                    openApp(context, notification.packageName)
+                }
+            }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top,
     ) {

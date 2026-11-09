@@ -685,6 +685,30 @@ into the APK.
   LiteRT-LM is likely the same, unconfirmed. Verify at build time.
 - **ML Kit GenAI minSdk 26 vs 31** (carried from §8) — still open.
 
+## 9.8 UPDATE 2026-11-09 — no-signup-only rule (supersedes §9.3/§9.6)
+
+Anthony's rule, set when the chain shipped: **Box only uses AI
+models/APIs that are free and public with NO signup and NO per-user
+key.** The keyed cloud legs are out — Groq, Gemini cloud and
+OpenRouter were removed from the router together with the per-user
+key entry UI in Settings (files `CloudEngines.kt` and `AiKeyStore.kt`
+deleted). Any stored mode naming a removed leg falls back to Auto;
+any stored keys are simply never read again.
+
+**New chain (Auto): Gemini Nano → downloaded Qwen 1.5B (LiteRT-LM)
+→ Pollinations cloud → ML Kit classic (Smart Reply) → plain list.**
+Forcing one leg still falls back to Smart Reply, then the plain list.
+
+**Pollinations AI — verified live 2026-11-09** (curl, before wiring
+it in): `GET https://text.pollinations.ai/<prompt>?model=openai`
+returned HTTP 200 with plain text ("pollinations works"), no key,
+no account. The free tier is **1 reply per 45 seconds per IP** — a
+second request inside that window answered **402 "Free limit
+reached"**, so the leg treats 402/429 as a rate limit and the router
+cools it down for 15 min while Smart Reply answers. No other cloud
+leg was added: nothing else found is genuinely free, public and
+keyless (the §9.3 table's other candidates all need keys or cards).
+
 ## Sources (added in this refinement)
 
 - LiteRT-LM supersedes MediaPipe LLM Inference: dev.to

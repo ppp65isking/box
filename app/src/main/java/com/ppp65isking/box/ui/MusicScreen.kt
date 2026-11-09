@@ -16,7 +16,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Card
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +30,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import com.ppp65isking.box.ui.components.BoxHeader
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,12 +47,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.ppp65isking.box.BoxApp
+import com.ppp65isking.box.data.ExternalNowPlaying
+import com.ppp65isking.box.data.MediaSessionHelper
+import com.ppp65isking.box.data.openApp
 import com.ppp65isking.box.data.openInYtMusic
 import com.ppp65isking.box.innertube.InnerTubeClient
 import com.ppp65isking.box.innertube.Renderers
 import com.ppp65isking.box.innertube.Song
 import com.ppp65isking.box.ui.components.NowPlayingBar
+import com.ppp65isking.box.ui.components.OnResume
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -73,6 +82,28 @@ fun MusicScreen() {
     var state by remember { mutableStateOf<MusicSearchState>(MusicSearchState.Idle) }
     var playingId by remember { mutableStateOf<String?>(null) }
     var playError by remember { mutableStateOf<String?>(null) }
+
+    // Live now-playing from OTHER apps (Spotify, YT Music, …) via
+    // MediaSession — visible to the notification listener, no new
+    // permission. Refreshed every second while this tab is open so
+    // the position stays live. Box's own in-app player is filtered
+    // out of this list (its bar is at the bottom, as before).
+    var externalPlaying by remember { mutableStateOf<List<ExternalNowPlaying>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            externalPlaying = withContext(Dispatchers.IO) {
+                MediaSessionHelper.activeSessions(context)
+            }
+            delay(1000)
+        }
+    }
+    OnResume {
+        scope.launch {
+            externalPlaying = withContext(Dispatchers.IO) {
+                MediaSessionHelper.activeSessions(context)
+            }
+        }
+    }
 
     fun search() {
         if (query.isBlank()) return
@@ -128,6 +159,26 @@ fun MusicScreen() {
 
     Column(modifier = Modifier.fillMaxSize()) {
         BoxHeader("Music")
+        if (externalPlaying.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 8.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Playing elsewhere",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    externalPlaying.forEach { session ->
+                        ExternalSessionRow(session = session)
+                    }
+                }
+            }
+        }
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             OutlinedTextField(
                 value = query,
@@ -217,6 +268,62 @@ fun MusicScreen() {
             )
         }
     }
+}
+
+@Composable
+private fun ExternalSessionRow(session: ExternalNowPlaying) {
+    val context = LocalContext.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { openApp(context, session.packageName) }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = if (session.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+            contentDescription = if (session.isPlaying) "Playing" else "Paused",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(28.dp),
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = session.title ?: "(no title)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = listOfNotNull(session.artist, session.appName)
+                    .joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (session.durationMs > 0L) {
+                Text(
+                    text = "${formatMs(session.positionMs)} / ${formatMs(session.durationMs)}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Icon(
+            imageVector = Icons.Filled.OpenInNew,
+            contentDescription = "Open ${session.appName}",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+/** 90000 ms → "1:30". */
+private fun formatMs(ms: Long): String {
+    val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
+    return "${totalSeconds / 60}:${(totalSeconds % 60).toString().padStart(2, '0')}"
 }
 
 @Composable

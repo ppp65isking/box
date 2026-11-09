@@ -25,6 +25,11 @@ data class BoxNotification(
     val title: String?,
     val text: String?,
     val postTime: Long,
+    /** The notification's own tap intent, when it has one. Tapping
+     *  the row fires this (see openNotificationTap) so it opens the
+     *  exact screen in the source app; it can expire, so callers
+     *  always fall back to launching the app. In-memory only. */
+    val contentIntent: android.app.PendingIntent? = null,
 )
 
 /** A public GitHub repo (unauthenticated search API). No owner photos —
@@ -85,6 +90,27 @@ data class GmailMessage(
     val snippet: String?,
 )
 
+/** One page of Gmail results — [nextPageToken] is null on the last
+ *  page. The list grows with "Load more" instead of a short fixed list. */
+data class GmailPage(
+    val messages: List<GmailMessage>,
+    val nextPageToken: String?,
+)
+
+/** One Gmail message, opened to read — full body plus the threading
+ *  headers a reply needs (threadId, Message-ID, References). */
+data class GmailFullMessage(
+    val id: String,
+    val threadId: String?,
+    val subject: String,
+    val from: String,
+    val to: String?,
+    val date: String?,
+    val messageId: String?,
+    val references: String?,
+    val body: String,
+)
+
 /** One Calendar event in the next 7 days. `start` is an RFC 3339
  *  timestamp or a plain date for all-day events. */
 data class CalendarEvent(
@@ -100,7 +126,11 @@ data class DriveFile(
     val mimeType: String?,
     val modifiedTime: String?,
     val webViewLink: String?,
-)
+) {
+    /** Google Drive folders are a MIME type, not a flag. */
+    val isFolder: Boolean
+        get() = mimeType == "application/vnd.google-apps.folder"
+}
 
 /** One photo from the Google Photos Library API. `baseUrl` needs a size
  *  suffix (e.g. "=w400") before it can be loaded as an image. */

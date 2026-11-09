@@ -7,6 +7,7 @@ import android.content.pm.ResolveInfo
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import com.ppp65isking.box.model.AppEntry
+import com.ppp65isking.box.model.BoxNotification
 
 data class InstalledApp(
     val packageName: String,
@@ -145,6 +146,19 @@ fun openQuickLink(context: Context, link: QuickLink, entry: AppEntry): Boolean {
     val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(fallback))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     return runCatching { context.startActivity(fallbackIntent); true }.getOrDefault(false)
+}
+
+/** Fire a captured notification's own tap intent, so it opens the
+ *  exact screen in the source app (a deal screen, an order tracker)
+ *  instead of just launching the app. Returns false when there is no
+ *  intent or it expired — callers fall back to [openApp]. Never
+ *  throws. */
+fun openNotificationTap(context: Context, notification: BoxNotification): Boolean {
+    val intent = notification.contentIntent ?: return false
+    return runCatching {
+        intent.send(context, 0, null)
+        true
+    }.getOrDefault(false)
 }
 
 /** Hand a song to the real YouTube Music app. Android resolves the

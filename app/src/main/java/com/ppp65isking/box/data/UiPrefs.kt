@@ -71,10 +71,26 @@ class UiPrefs(context: Context) {
         _previewRail.value = enabled
     }
 
+    private val _mostUsedFirst = MutableStateFlow(
+        prefs.getBoolean(KEY_MOST_USED_FIRST, false),
+    )
+
+    /** When true (and usage access is granted), the Home grid orders
+     *  apps by how recently they were used, and "Jump back in" fills
+     *  from last-used data. Default off — the grid stays in catalog
+     *  order until the user opts in. */
+    val mostUsedFirst: StateFlow<Boolean> = _mostUsedFirst.asStateFlow()
+
+    fun setMostUsedFirst(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_MOST_USED_FIRST, enabled).apply()
+        _mostUsedFirst.value = enabled
+    }
+
     companion object {
         private const val KEY_FLOATING_BAR = "floating_bar"
         private const val KEY_HEALTH_CONNECT = "health_connect"
         private const val KEY_RAIL_ON_LEFT = "rail_on_left"
         private const val KEY_PREVIEW_RAIL = "preview_rail"
+        private const val KEY_MOST_USED_FIRST = "most_used_first"
     }
 }

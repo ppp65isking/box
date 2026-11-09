@@ -51,6 +51,10 @@ class BoxNotificationListener : NotificationListenerService() {
             title = title,
             text = text,
             postTime = sbn.postTime,
+            // The notification's own tap intent — firing it opens the
+            // exact screen in the source app (a deal screen, an order
+            // tracker) instead of just launching the app.
+            contentIntent = notification.contentIntent,
         )
     }
 

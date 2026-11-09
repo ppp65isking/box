@@ -17,12 +17,17 @@ data class ChatMessage(val text: String, val isOutgoing: Boolean)
  *  UI ("AI: Nano") so the fallback is visible during testing. */
 data class AiResult(val text: String, val engineLabel: String, val leg: AiLeg)
 
-/** One leg of the fallback chain, in router order. */
-enum class AiLeg { NANO, LITERT, GROQ, GEMINI_CLOUD, OPENROUTER, CLASSIC, PLAIN }
+/** One leg of the fallback chain, in router order. No-signup-only
+ *  (Anthony's rule, 2026-11-09): every leg is free and public with
+ *  no account and no key — Nano on the phone, the downloaded Qwen
+ *  model, Pollinations cloud, ML Kit classic, plain list. The keyed
+ *  cloud legs (Groq, Gemini cloud, OpenRouter) were removed with
+ *  their key entry UI; they needed accounts and are out. */
+enum class AiLeg { NANO, LITERT, POLLINATIONS, CLASSIC, PLAIN }
 
 /** How the router picks legs. Auto = the full chain; forcing one leg
  *  still falls back to Classic then Plain, never a dead button. */
-enum class AiMode { AUTO, NANO, LITERT, GROQ, GEMINI_CLOUD, OPENROUTER, CLASSIC }
+enum class AiMode { AUTO, NANO, LITERT, POLLINATIONS, CLASSIC }
 
 interface AiEngine {
     val leg: AiLeg
@@ -39,7 +44,7 @@ interface AiEngine {
  *  instead of hammering it. */
 class RateLimitedException(message: String) : Exception(message)
 
-/** Prompt text for the LLM legs (Nano, LiteRT, cloud). Kept short:
+/** Prompt text for the LLM legs (Nano, LiteRT, Pollinations). Kept short:
  *  Nano's context is under 4000 tokens and the LiteRT model has a
  *  4096-token context, so the input is capped. */
 internal fun AiTask.toPrompt(): String? = when (this) {

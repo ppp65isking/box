@@ -10,14 +10,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import com.ppp65isking.box.ui.components.BoxHeader
@@ -33,8 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.ppp65isking.box.BoxApp
 import com.ppp65isking.box.data.ai.AiMode
@@ -47,11 +43,17 @@ import kotlinx.coroutines.withContext
 /**
  * Settings → "AI model". The router's mode (Auto or force one leg),
  * what each leg can do on this phone, the opt-in on-device model
- * download, the per-user cloud keys, and the Nano check.
+ * download, and the Nano check.
  *
- * Nothing here is a dead button: a leg with no key or no model simply
- * isn't in the chain until it is set up, and forcing a leg still
- * falls back to Smart Reply, then a plain list.
+ * NO-SIGNUP ONLY (Anthony's rule, 2026-11-09): every leg here is
+ * free and public with no account and no key to paste — Nano on the
+ * phone, the downloaded Qwen model, Pollinations cloud, Smart Reply.
+ * The keyed cloud legs (Groq, Gemini cloud, OpenRouter) and their
+ * key entry fields were removed.
+ *
+ * Nothing here is a dead button: a leg with no model simply isn't in
+ * the chain until it is set up, and forcing a leg still falls back to
+ * Smart Reply, then a plain list.
  */
 @Composable
 fun AiSettingsScreen() {
@@ -66,7 +68,6 @@ fun AiSettingsScreen() {
     var statuses by remember { mutableStateOf<List<LegStatus>>(emptyList()) }
     var nanoCheck by remember { mutableStateOf<String?>(null) }
     var nanoChecking by remember { mutableStateOf(false) }
-    var keysVersion by remember { mutableStateOf(0) }
 
     fun refreshStatuses() {
         scope.launch {
@@ -89,15 +90,16 @@ fun AiSettingsScreen() {
             Text(
                 text = "Auto tries each model in order and switches when one " +
                     "isn't available. Forcing one still falls back to Smart " +
-                    "Reply, then a plain list — never a dead button.",
+                    "Reply, then a plain list — never a dead button. " +
+                    "Every model here is free with no sign-up and no key " +
+                    "to paste.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(8.dp))
             ModeRow(
                 title = "Auto",
-                subtitle = "Nano → on-device model → Groq → Gemini → " +
-                    "OpenRouter → Smart Reply",
+                subtitle = "Nano → on-device model → Pollinations → Smart Reply",
                 selected = mode == AiMode.AUTO,
                 onClick = {
                     app.aiRouter.prefs.mode = AiMode.AUTO
@@ -123,29 +125,11 @@ fun AiSettingsScreen() {
                 },
             )
             ModeRow(
-                title = "Groq cloud",
-                subtitle = "Free, biggest quota — needs your key below",
-                selected = mode == AiMode.GROQ,
+                title = "Pollinations cloud",
+                subtitle = "Free, no sign-up — 1 request per 45 seconds",
+                selected = mode == AiMode.POLLINATIONS,
                 onClick = {
-                    app.aiRouter.prefs.mode = AiMode.GROQ
-                    refreshStatuses()
-                },
-            )
-            ModeRow(
-                title = "Gemini cloud",
-                subtitle = "Free — needs your key below",
-                selected = mode == AiMode.GEMINI_CLOUD,
-                onClick = {
-                    app.aiRouter.prefs.mode = AiMode.GEMINI_CLOUD
-                    refreshStatuses()
-                },
-            )
-            ModeRow(
-                title = "OpenRouter free",
-                subtitle = "Spare leg — 50 free requests a day, lineup rotates",
-                selected = mode == AiMode.OPENROUTER,
-                onClick = {
-                    app.aiRouter.prefs.mode = AiMode.OPENROUTER
+                    app.aiRouter.prefs.mode = AiMode.POLLINATIONS
                     refreshStatuses()
                 },
             )
@@ -304,66 +288,6 @@ fun AiSettingsScreen() {
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            SectionTitle("Cloud keys (your own, free)")
-            Text(
-                text = "Groq, Gemini and OpenRouter each need your own " +
-                    "free key, pasted once. Keys stay on this phone and " +
-                    "are only sent to that provider. No key = that leg " +
-                    "stays off. Get a key at console.groq.com, " +
-                    "aistudio.google.com, or openrouter.ai.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            KeyField(
-                label = "Groq key",
-                saved = app.aiKeyStore.groqKey,
-                key = keysVersion,
-                onSave = {
-                    app.aiKeyStore.groqKey = it
-                    keysVersion++
-                    refreshStatuses()
-                },
-                onClear = {
-                    app.aiKeyStore.groqKey = null
-                    keysVersion++
-                    refreshStatuses()
-                },
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            KeyField(
-                label = "Gemini key",
-                saved = app.aiKeyStore.geminiKey,
-                key = keysVersion,
-                onSave = {
-                    app.aiKeyStore.geminiKey = it
-                    keysVersion++
-                    refreshStatuses()
-                },
-                onClear = {
-                    app.aiKeyStore.geminiKey = null
-                    keysVersion++
-                    refreshStatuses()
-                },
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            KeyField(
-                label = "OpenRouter key",
-                saved = app.aiKeyStore.openRouterKey,
-                key = keysVersion,
-                onSave = {
-                    app.aiKeyStore.openRouterKey = it
-                    keysVersion++
-                    refreshStatuses()
-                },
-                onClear = {
-                    app.aiKeyStore.openRouterKey = null
-                    keysVersion++
-                    refreshStatuses()
-                },
-            )
-
             lastEngine?.let {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -414,43 +338,6 @@ private fun ModeRow(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
-}
-
-@Composable
-private fun KeyField(
-    label: String,
-    saved: String?,
-    key: Int,
-    onSave: (String) -> Unit,
-    onClear: () -> Unit,
-) {
-    var value by remember(key) { mutableStateOf(saved ?: "") }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { value = it },
-            label = { Text(if (saved != null) "$label (saved)" else label) },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row {
-            Button(
-                onClick = { onSave(value.trim()) },
-                enabled = value.isNotBlank(),
-            ) {
-                Text("Save")
-            }
-            if (saved != null) {
-                Spacer(modifier = Modifier.width(8.dp))
-                OutlinedButton(onClick = onClear) {
-                    Text("Clear")
-                }
-            }
         }
     }
 }

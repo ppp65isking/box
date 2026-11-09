@@ -11,6 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +61,7 @@ import com.ppp65isking.box.ui.DealsScreen
 import com.ppp65isking.box.ui.DiscordScreen
 import com.ppp65isking.box.ui.GitHubScreen
 import com.ppp65isking.box.ui.GoogleScreen
+import com.ppp65isking.box.ui.GoogleTab
 import com.ppp65isking.box.ui.HomeScreen
 import com.ppp65isking.box.ui.InboxScreen
 import com.ppp65isking.box.ui.MoreScreen
@@ -108,6 +110,9 @@ private fun BoxNav() {
     var destination by remember { mutableStateOf(Destination.HOME) }
     // Secondary destinations live under More (no bottom-bar slot).
     var secondary by remember { mutableStateOf<String?>(null) }
+    // The Google hub's tab — owned here so the Google-style bottom
+    // bar (shown while the hub is open) and the hub screen agree.
+    var googleTab by remember { mutableStateOf(GoogleTab.MAIL) }
 
     // Android 13+: ask once at startup for Box's own notification
     // permission, so the music-playback notification can show. Everything
@@ -199,12 +204,19 @@ private fun BoxNav() {
                     "github" -> GitHubScreen()
                     "reddit" -> RedditScreen()
                     "sms" -> SmsScreen()
-                    "google" -> GoogleScreen()
+                    "google" -> GoogleScreen(
+                        tab = googleTab,
+                        onBack = {
+                            secondary = null
+                            destination = Destination.HOME
+                            googleTab = GoogleTab.MAIL
+                        },
+                    )
                     "spotify" -> SpotifyScreen()
                     "discord" -> DiscordScreen()
                     "steam" -> SteamScreen()
                     "ai" -> AiSettingsScreen()
-                    "setup" -> SetupScreen()
+                    "setup" -> SetupScreen(onNavigate = { secondary = it })
                     else -> when (destination) {
                         Destination.HOME -> HomeScreen(onOpenHub = { secondary = it })
                         Destination.INBOX -> InboxScreen()
@@ -214,7 +226,18 @@ private fun BoxNav() {
                     }
                 }
             }
-            if (isFoldable) {
+            // While the Google hub is open the Box bar is replaced by
+            // a Google-style Email / Calendar / Drive bar; leaving the
+            // hub (its back button) restores the normal bar.
+            if (secondary == "google") {
+                GoogleBar(
+                    selected = googleTab,
+                    onSelect = { googleTab = it },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    hazeState = hazeState,
+                    blur = floatingBar && !isFoldable,
+                )
+            } else if (isFoldable) {
                 FoldableRail(
                     selected = if (secondary == null) destination else null,
                     onSelect = { go(it) },
@@ -339,6 +362,81 @@ private fun FloatingIconBar(
                     imageVector = entry.icon,
                     contentDescription = entry.label,
                     tint = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The Google hub's bottom bar: Email / Calendar / Drive, labeled,
+ * in the same detached frosted pill as the Box floating bar (real
+ * Haze blur when the floating bar is on). It replaces the Box bar
+ * while the Google hub is open; leaving the hub restores the Box bar.
+ */
+@Composable
+private fun GoogleBar(
+    selected: GoogleTab,
+    onSelect: (GoogleTab) -> Unit,
+    modifier: Modifier = Modifier,
+    hazeState: HazeState,
+    blur: Boolean,
+) {
+    val pillShape = RoundedCornerShape(28.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+            .shadow(elevation = 12.dp, shape = pillShape)
+            .clip(pillShape)
+            .then(
+                if (blur) {
+                    Modifier.hazeEffect(
+                        state = hazeState,
+                        style = HazeStyle(
+                            backgroundColor = MaterialTheme.colorScheme
+                                .surfaceContainer.copy(alpha = 0.7f),
+                            tints = emptyList(),
+                            blurRadius = 20.dp,
+                            noiseFactor = 0f,
+                        ),
+                    )
+                } else {
+                    Modifier.background(
+                        MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.9f),
+                        pillShape,
+                    )
+                },
+            )
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GoogleTab.entries.forEach { entry ->
+            val isSelected = selected == entry
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable { onSelect(entry) }
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+            ) {
+                Icon(
+                    imageVector = entry.icon,
+                    contentDescription = entry.label,
+                    tint = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                Text(
+                    text = entry.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isSelected) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant

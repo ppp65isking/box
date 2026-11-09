@@ -21,34 +21,32 @@ data class LegStatus(
  * talking to a model directly. Adding a leg later is a one-file
  * change: a new [AiEngine] plus one line here.
  *
- * Chain (Auto): Gemini Nano → downloaded Qwen model → Groq cloud →
- * Gemini cloud → OpenRouter free → ML Kit classic → plain list.
- * Availability is checked lazily, per call; a leg that fails or hits
- * a rate limit is cooled down (15 min for rate limits, 5 min for
- * other failures) instead of being hammered.
+ * Chain (Auto), NO-SIGNUP ONLY (Anthony's rule, 2026-11-09): Gemini
+ * Nano → downloaded Qwen model → Pollinations cloud → ML Kit classic
+ * → plain list. Every leg is free and public with no account and no
+ * key. The keyed cloud legs (Groq, Gemini cloud, OpenRouter) were
+ * removed — they needed per-user keys, so they are out, along with
+ * the key entry UI in Settings. Availability is checked lazily, per
+ * call; a leg that fails or hits a rate limit is cooled down (15 min
+ * for rate limits, 5 min for other failures) instead of being hammered.
  */
 class AiRouter(
     context: Context,
     okHttp: OkHttpClient,
-    private val keyStore: AiKeyStore,
     private val modelManager: LiteRtModelManager,
 ) {
     val prefs = AiPrefs(context)
 
     val nanoEngine = NanoEngine()
     private val liteRtEngine = LiteRtEngine(context, modelManager)
-    private val groqEngine = GroqEngine(okHttp, keyStore)
-    private val geminiEngine = GeminiCloudEngine(okHttp, keyStore)
-    private val openRouterEngine = OpenRouterEngine(okHttp, keyStore)
+    private val pollinationsEngine = PollinationsEngine(okHttp)
     private val classicEngine = ClassicEngine(context)
     private val plainEngine = PlainEngine()
 
     private val engines: Map<AiLeg, AiEngine> = mapOf(
         AiLeg.NANO to nanoEngine,
         AiLeg.LITERT to liteRtEngine,
-        AiLeg.GROQ to groqEngine,
-        AiLeg.GEMINI_CLOUD to geminiEngine,
-        AiLeg.OPENROUTER to openRouterEngine,
+        AiLeg.POLLINATIONS to pollinationsEngine,
         AiLeg.CLASSIC to classicEngine,
         AiLeg.PLAIN to plainEngine,
     )
@@ -89,17 +87,13 @@ class AiRouter(
         AiMode.AUTO -> listOf(
             AiLeg.NANO,
             AiLeg.LITERT,
-            AiLeg.GROQ,
-            AiLeg.GEMINI_CLOUD,
-            AiLeg.OPENROUTER,
+            AiLeg.POLLINATIONS,
             AiLeg.CLASSIC,
             AiLeg.PLAIN,
         )
         AiMode.NANO -> listOf(AiLeg.NANO, AiLeg.CLASSIC, AiLeg.PLAIN)
         AiMode.LITERT -> listOf(AiLeg.LITERT, AiLeg.CLASSIC, AiLeg.PLAIN)
-        AiMode.GROQ -> listOf(AiLeg.GROQ, AiLeg.CLASSIC, AiLeg.PLAIN)
-        AiMode.GEMINI_CLOUD -> listOf(AiLeg.GEMINI_CLOUD, AiLeg.CLASSIC, AiLeg.PLAIN)
-        AiMode.OPENROUTER -> listOf(AiLeg.OPENROUTER, AiLeg.CLASSIC, AiLeg.PLAIN)
+        AiMode.POLLINATIONS -> listOf(AiLeg.POLLINATIONS, AiLeg.CLASSIC, AiLeg.PLAIN)
         AiMode.CLASSIC -> listOf(AiLeg.CLASSIC, AiLeg.PLAIN)
     }
 
@@ -120,25 +114,10 @@ class AiRouter(
                 liteRtEngine.available(),
             ),
             LegStatus(
-                AiLeg.GROQ,
-                "Groq cloud",
-                if (!keyStore.groqKey.isNullOrBlank()) "Key saved"
-                else "No key yet — add one below",
-                groqEngine.available(),
-            ),
-            LegStatus(
-                AiLeg.GEMINI_CLOUD,
-                "Gemini cloud",
-                if (!keyStore.geminiKey.isNullOrBlank()) "Key saved"
-                else "No key yet — add one below",
-                geminiEngine.available(),
-            ),
-            LegStatus(
-                AiLeg.OPENROUTER,
-                "OpenRouter free",
-                if (!keyStore.openRouterKey.isNullOrBlank()) "Key saved"
-                else "No key yet — add one below",
-                openRouterEngine.available(),
+                AiLeg.POLLINATIONS,
+                "Pollinations cloud",
+                "Free, no sign-up — 1 request per 45 seconds",
+                true,
             ),
             LegStatus(
                 AiLeg.CLASSIC,
