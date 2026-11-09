@@ -126,6 +126,27 @@ fun openUrl(context: Context, url: String) {
     runCatching { context.startActivity(intent) }
 }
 
+/** Fire a quick link: try the deep link first, then the web fallback.
+ *  Returns false only when nothing could open, so the UI can say the
+ *  link isn't supported. Never uses resolveActivity() — package
+ *  visibility (Android 11+) makes it return null for intents Box
+ *  doesn't declare in <queries>; try/catch is the reliable pattern. */
+fun openQuickLink(context: Context, link: QuickLink, entry: AppEntry): Boolean {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.uri))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    if (link.kind == LinkKind.CUSTOM_SCHEME) {
+        // Pin a custom scheme to the app's package so no other app can
+        // claim it — only when the package is known.
+        entry.packageName?.let { intent.setPackage(it) }
+    }
+    val opened = runCatching { context.startActivity(intent); true }.getOrDefault(false)
+    if (opened) return true
+    val fallback = link.fallbackUrl ?: return false
+    val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(fallback))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    return runCatching { context.startActivity(fallbackIntent); true }.getOrDefault(false)
+}
+
 /** Hand a song to the real YouTube Music app. Android resolves the
  *  music.youtube.com link to the YT Music app when it is installed, and
  *  to the browser when it is not — no special-casing needed. */

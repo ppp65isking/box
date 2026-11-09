@@ -2,6 +2,7 @@ package com.ppp65isking.box.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Button
@@ -31,8 +33,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -61,6 +65,7 @@ import com.ppp65isking.box.BoxApp
 import com.ppp65isking.box.data.AppCatalog
 import com.ppp65isking.box.data.AppStatus
 import com.ppp65isking.box.data.HealthConnectHelper
+import com.ppp65isking.box.data.InstalledApp
 import com.ppp65isking.box.data.LaunchHistory
 import com.ppp65isking.box.data.ResolvedApp
 import com.ppp65isking.box.data.WeatherClient
@@ -69,8 +74,12 @@ import com.ppp65isking.box.data.hubForPackage
 import com.ppp65isking.box.data.loadInstalledApps
 import com.ppp65isking.box.data.openApp
 import com.ppp65isking.box.data.openPlayStore
+import com.ppp65isking.box.data.openQuickLink
+import com.ppp65isking.box.data.quickLinksFor
 import com.ppp65isking.box.data.resolveEntry
+import com.ppp65isking.box.model.AppEntry
 import com.ppp65isking.box.model.Category
+import com.ppp65isking.box.model.Tier
 import com.ppp65isking.box.model.WeatherNow
 import com.ppp65isking.box.ui.components.AppIcon
 import com.ppp65isking.box.ui.components.BoxHeader
@@ -117,6 +126,18 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
 
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf<Category?>(null) }
+
+    // Quick links: long-press an app to open its bottom sheet.
+    var sheetApp by remember { mutableStateOf<ResolvedApp?>(null) }
+    /** A "Jump back in" row only knows the installed app, not its
+     *  catalog entry — match it back to the catalog (by package, then
+     *  label) so it gets the same sheet and quick links. */
+    fun sheetForInstalled(installed: InstalledApp): ResolvedApp {
+        val entry = AppCatalog.apps.firstOrNull { it.packageName == installed.packageName }
+            ?: AppCatalog.apps.firstOrNull { it.name.lowercase() == installed.label.lowercase() }
+            ?: AppEntry(installed.label, installed.packageName, Tier.INBOX, Category.OTHER)
+        return ResolvedApp(entry, AppStatus.INSTALLED, installed.packageName, installed.icon)
+    }
 
     val filtered = remember(resolved, query, category) {
         resolved.filter { item ->
@@ -255,17 +276,20 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     modifier = Modifier
                                         .width(72.dp)
-                                        .clickable {
-                                            val hub = hubForPackage(installed.packageName)
-                                            if (hub != null) {
-                                                launchHistory.record(installed.packageName)
-                                                recentPackages = launchHistory.recent()
-                                                onOpenHub(hub)
-                                            } else if (openApp(context, installed.packageName)) {
-                                                launchHistory.record(installed.packageName)
-                                                recentPackages = launchHistory.recent()
-                                            }
-                                        },
+                                        .combinedClickable(
+                                            onClick = {
+                                                val hub = hubForPackage(installed.packageName)
+                                                if (hub != null) {
+                                                    launchHistory.record(installed.packageName)
+                                                    recentPackages = launchHistory.recent()
+                                                    onOpenHub(hub)
+                                                } else if (openApp(context, installed.packageName)) {
+                                                    launchHistory.record(installed.packageName)
+                                                    recentPackages = launchHistory.recent()
+                                                }
+                                            },
+                                            onLongClick = { sheetApp = sheetForInstalled(installed) },
+                                        ),
                                 ) {
                                     AppIcon(icon = installed.icon, name = installed.label)
                                     Spacer(modifier = Modifier.height(4.dp))
@@ -362,8 +386,123 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
                     )
                 }
                 items(filtered, key = { it.entry.name }) { item ->
-                    AppGridCell(item = item, onClick = { launch(item) })
+                    AppGridCell(
+                        item = item,
+                        onClick = { launch(item) },
+                        onLongClick = { sheetApp = item },
+                    )
                 }
+            }
+        }
+    }
+
+    // Quick links bottom sheet (long-press on any app).
+    sheetApp?.let { app ->
+        QuickLinksSheet(
+            item = app,
+            onOpenApp = {
+                sheetApp = null
+                launch(app)
+            },
+            onDismiss = { sheetApp = null },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QuickLinksSheet(
+    item: ResolvedApp,
+    onOpenApp: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val links = quickLinksFor(item.entry)
+    // Set when a link fails to open anywhere — the sheet stays open and
+    // says so plainly instead of failing silently.
+    var failedLink by remember { mutableStateOf<String?>(null) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AppIcon(icon = item.icon, name = item.entry.name, size = 40.dp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = item.entry.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            links.forEach { link ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            if (openQuickLink(context, link, item.entry)) {
+                                onDismiss()
+                            } else {
+                                failedLink = link.label
+                            }
+                        }
+                        .padding(vertical = 12.dp),
+                ) {
+                    Text(
+                        text = link.label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.OpenInNew,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+            if (failedLink != null) {
+                Text(
+                    text = "Couldn't open \"$failedLink\" — the app may not support that link.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+            }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenApp() }
+                    .padding(vertical = 12.dp),
+            ) {
+                Text(
+                    text = "Open app",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        openPlayStore(context, item.entry)
+                        onDismiss()
+                    }
+                    .padding(vertical = 12.dp),
+            ) {
+                Text(
+                    text = "App info",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
@@ -560,10 +699,13 @@ private fun StepsRow(
 }
 
 @Composable
-private fun AppGridCell(item: ResolvedApp, onClick: () -> Unit) {
+private fun AppGridCell(item: ResolvedApp, onClick: () -> Unit, onLongClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable { onClick() },
+        modifier = Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick,
+        ),
     ) {
         AppIcon(icon = item.icon, name = item.entry.name)
         Spacer(modifier = Modifier.height(4.dp))
