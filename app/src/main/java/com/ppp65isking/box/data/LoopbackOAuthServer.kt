@@ -114,8 +114,8 @@ class LoopbackOAuthServer(
             out.write(bytes)
         } else {
             out.write(
-                "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n" +
-                    "Connection: close\r\n\r\n"
+                ("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n" +
+                    "Connection: close\r\n\r\n")
                     .toByteArray(Charsets.US_ASCII),
             )
         }
