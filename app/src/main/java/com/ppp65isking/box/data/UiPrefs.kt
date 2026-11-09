@@ -58,9 +58,23 @@ class UiPrefs(context: Context) {
         _railOnLeft.value = enabled
     }
 
+    private val _previewRail = MutableStateFlow(
+        prefs.getBoolean(KEY_PREVIEW_RAIL, false),
+    )
+
+    /** Show the foldable icon rail on any phone, to preview the
+     *  foldable layout without a foldable. Default off. */
+    val previewRail: StateFlow<Boolean> = _previewRail.asStateFlow()
+
+    fun setPreviewRail(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_PREVIEW_RAIL, enabled).apply()
+        _previewRail.value = enabled
+    }
+
     companion object {
         private const val KEY_FLOATING_BAR = "floating_bar"
         private const val KEY_HEALTH_CONNECT = "health_connect"
         private const val KEY_RAIL_ON_LEFT = "rail_on_left"
+        private const val KEY_PREVIEW_RAIL = "preview_rail"
     }
 }

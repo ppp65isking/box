@@ -109,15 +109,17 @@ private fun BoxNav() {
     val app = context.applicationContext as BoxApp
     val floatingBar by app.uiPrefs.floatingBar.collectAsState()
     val railOnLeft by app.uiPrefs.railOnLeft.collectAsState()
+    val previewRail by app.uiPrefs.previewRail.collectAsState()
 
     // Foldables (any FoldingFeature, folded or unfolded) get the
     // vertical icon rail instead of a bottom bar — see FoldableRail.
-    // Phones keep the floating pill / standard bar.
+    // Phones keep the floating pill / standard bar. The Settings
+    // preview toggle forces the rail on any phone.
     val activity = context as ComponentActivity
     val layoutInfo by WindowInfoTracker.getOrCreate(activity)
         .windowLayoutInfo(activity)
         .collectAsState(initial = null)
-    val isFoldable = layoutInfo?.displayFeatures
+    val isFoldable = previewRail || layoutInfo?.displayFeatures
         ?.any { it is FoldingFeature } == true
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),

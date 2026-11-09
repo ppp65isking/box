@@ -36,6 +36,7 @@ fun SetupScreen() {
     val floatingBar by app.uiPrefs.floatingBar.collectAsState()
     val healthConnect by app.uiPrefs.healthConnect.collectAsState()
     val railOnLeft by app.uiPrefs.railOnLeft.collectAsState()
+    val previewRail by app.uiPrefs.previewRail.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         BoxHeader("Settings")
@@ -107,6 +108,28 @@ fun SetupScreen() {
                 Switch(
                     checked = railOnLeft,
                     onCheckedChange = { app.uiPrefs.setRailOnLeft(it) },
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Preview foldable layout",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Show the foldable icon rail on this phone.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = previewRail,
+                    onCheckedChange = { app.uiPrefs.setPreviewRail(it) },
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
