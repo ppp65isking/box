@@ -35,6 +35,7 @@ fun SetupScreen() {
     val app = context.applicationContext as BoxApp
     val floatingBar by app.uiPrefs.floatingBar.collectAsState()
     val healthConnect by app.uiPrefs.healthConnect.collectAsState()
+    val railOnLeft by app.uiPrefs.railOnLeft.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         BoxHeader("Settings")
@@ -84,6 +85,28 @@ fun SetupScreen() {
                 Switch(
                     checked = healthConnect,
                     onCheckedChange = { app.uiPrefs.setHealthConnect(it) },
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Foldable rail on the left",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "On foldables the icon rail sits at the bottom right — flip it to the left.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = railOnLeft,
+                    onCheckedChange = { app.uiPrefs.setRailOnLeft(it) },
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))

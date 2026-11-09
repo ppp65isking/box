@@ -13,10 +13,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -46,6 +48,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.window.layout.FoldingFeature
+import androidx.window.layout.WindowInfoTracker
 import com.ppp65isking.box.ui.DealsScreen
 import com.ppp65isking.box.ui.DiscordScreen
 import com.ppp65isking.box.ui.GitHubScreen
@@ -104,6 +108,17 @@ private fun BoxNav() {
     val context = LocalContext.current
     val app = context.applicationContext as BoxApp
     val floatingBar by app.uiPrefs.floatingBar.collectAsState()
+    val railOnLeft by app.uiPrefs.railOnLeft.collectAsState()
+
+    // Foldables (any FoldingFeature, folded or unfolded) get the
+    // vertical icon rail instead of a bottom bar — see FoldableRail.
+    // Phones keep the floating pill / standard bar.
+    val activity = context as ComponentActivity
+    val layoutInfo by WindowInfoTracker.getOrCreate(activity)
+        .windowLayoutInfo(activity)
+        .collectAsState(initial = null)
+    val isFoldable = layoutInfo?.displayFeatures
+        ?.any { it is FoldingFeature } == true
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { /* granted or not — playback still works, just silently */ }
@@ -126,9 +141,10 @@ private fun BoxNav() {
     Scaffold(
         // The floating bar is NOT a Scaffold bottom bar: it overlays the
         // content (see below) so lists scroll underneath it. Only the
-        // standard bar takes the slot.
+        // standard bar takes the slot — and foldables take neither,
+        // they get the vertical rail instead.
         bottomBar = {
-            if (!floatingBar) {
+            if (!floatingBar && !isFoldable) {
                 NavigationBar {
                     Destination.entries.forEach { entry ->
                         NavigationBarItem(
@@ -172,11 +188,70 @@ private fun BoxNav() {
                     }
                 }
             }
-            if (floatingBar) {
+            if (isFoldable) {
+                FoldableRail(
+                    selected = if (secondary == null) destination else null,
+                    onSelect = { go(it) },
+                    onLeft = railOnLeft,
+                    modifier = Modifier.align(
+                        if (railOnLeft) Alignment.BottomStart else Alignment.BottomEnd,
+                    ),
+                )
+            } else if (floatingBar) {
                 FloatingIconBar(
                     selected = if (secondary == null) destination else null,
                     onSelect = { go(it) },
                     modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Foldable nav: a vertical, icon-only rail in a frosted pill, docked
+ * to the bottom edge on the right (or left, per Settings). Folded and
+ * unfolded alike — the rail stays put when the device opens. Same
+ * five tabs as the bottom bar, same selected color, no labels.
+ * Phones never see this; only devices with a FoldingFeature do.
+ */
+@Composable
+private fun FoldableRail(
+    selected: Destination?,
+    onSelect: (Destination) -> Unit,
+    onLeft: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val pillShape = RoundedCornerShape(28.dp)
+    Column(
+        modifier = modifier
+            .wrapContentSize()
+            .padding(
+                start = if (onLeft) 16.dp else 0.dp,
+                end = if (onLeft) 0.dp else 16.dp,
+                bottom = 12.dp,
+            )
+            .shadow(elevation = 12.dp, shape = pillShape)
+            .clip(pillShape)
+            .background(
+                MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f),
+                pillShape,
+            )
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Destination.entries.forEach { entry ->
+            val isSelected = selected == entry
+            IconButton(onClick = { onSelect(entry) }) {
+                Icon(
+                    imageVector = entry.icon,
+                    contentDescription = entry.label,
+                    tint = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
         }

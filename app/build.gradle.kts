@@ -89,4 +89,8 @@ dependencies {
     // Custom Tabs — OAuth sign-in pages open in-app and redirect back
     // to box://oauth/<service>. Small, stable, no extra setup.
     implementation("androidx.browser:browser:1.8.0")
+
+    // Jetpack WindowManager — foldable detection (FoldingFeature) for
+    // the vertical nav rail on foldables.
+    implementation("androidx.window:window:1.4.0")
 }

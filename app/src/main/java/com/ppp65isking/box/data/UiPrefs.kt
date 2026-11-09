@@ -44,8 +44,23 @@ class UiPrefs(context: Context) {
         _healthConnect.value = enabled
     }
 
+    private val _railOnLeft = MutableStateFlow(
+        prefs.getBoolean(KEY_RAIL_ON_LEFT, false),
+    )
+
+    /** On foldables the nav is a vertical icon rail at the bottom
+     *  right; when true it sits at the bottom left instead. Phones
+     *  ignore this. Default right. */
+    val railOnLeft: StateFlow<Boolean> = _railOnLeft.asStateFlow()
+
+    fun setRailOnLeft(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_RAIL_ON_LEFT, enabled).apply()
+        _railOnLeft.value = enabled
+    }
+
     companion object {
         private const val KEY_FLOATING_BAR = "floating_bar"
         private const val KEY_HEALTH_CONNECT = "health_connect"
+        private const val KEY_RAIL_ON_LEFT = "rail_on_left"
     }
 }
