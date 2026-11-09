@@ -164,7 +164,7 @@ private fun BoxNav() {
                     "discord" -> DiscordScreen()
                     "setup" -> SetupScreen()
                     else -> when (destination) {
-                        Destination.HOME -> HomeScreen()
+                        Destination.HOME -> HomeScreen(onOpenHub = { secondary = it })
                         Destination.INBOX -> InboxScreen()
                         Destination.DEALS -> DealsScreen()
                         Destination.MUSIC -> MusicScreen()

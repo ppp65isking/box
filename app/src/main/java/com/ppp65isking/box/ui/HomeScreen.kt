@@ -62,6 +62,8 @@ import com.ppp65isking.box.data.HealthConnectHelper
 import com.ppp65isking.box.data.LaunchHistory
 import com.ppp65isking.box.data.ResolvedApp
 import com.ppp65isking.box.data.WeatherClient
+import com.ppp65isking.box.data.hubForEntry
+import com.ppp65isking.box.data.hubForPackage
 import com.ppp65isking.box.data.loadInstalledApps
 import com.ppp65isking.box.data.openApp
 import com.ppp65isking.box.data.openPlayStore
@@ -83,7 +85,7 @@ private sealed interface WeatherState {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onOpenHub: (String) -> Unit) {
     val context = LocalContext.current
     val app = context.applicationContext as BoxApp
     val scope = rememberCoroutineScope()
@@ -149,6 +151,18 @@ fun HomeScreen() {
         recentPackages = launchHistory.recent()
     }
     fun launch(item: ResolvedApp) {
+        // Apps with a Box Hub open the Hub instead of the outside app —
+        // even when the app isn't installed, the Hub still works.
+        val hub = hubForEntry(item.entry)
+            ?: item.packageName?.let { hubForPackage(it) }
+        if (hub != null) {
+            item.packageName?.let {
+                launchHistory.record(it)
+                recentPackages = launchHistory.recent()
+            }
+            onOpenHub(hub)
+            return
+        }
         item.packageName?.let { pkg ->
             if (openApp(context, pkg)) {
                 launchHistory.record(pkg)
@@ -219,7 +233,11 @@ fun HomeScreen() {
                                     modifier = Modifier
                                         .width(72.dp)
                                         .clickable {
-                                            if (openApp(context, installed.packageName)) {
+                                            hubForPackage(installed.packageName)?.let { hub ->
+                                                launchHistory.record(installed.packageName)
+                                                recentPackages = launchHistory.recent()
+                                                onOpenHub(hub)
+                                            } ?: if (openApp(context, installed.packageName)) {
                                                 launchHistory.record(installed.packageName)
                                                 recentPackages = launchHistory.recent()
                                             }

@@ -57,6 +57,32 @@ fun resolveEntry(
     return ResolvedApp(entry, AppStatus.NOT_INSTALLED, null, null)
 }
 
+/** Box has a built-in Hub for a few apps — tap one on Home and the Hub
+ *  opens instead of launching the outside app. Keyed by package, with a
+ *  name fallback for catalog entries whose package is unknown. */
+private val HUB_BY_PACKAGE = mapOf(
+    "com.github.android" to "github",
+    "com.reddit.frontpage" to "reddit",
+    "com.google.android.apps.messaging" to "sms",
+    "com.google.android.gm" to "google",
+    "com.spotify.music" to "spotify",
+    "com.discord" to "discord",
+)
+
+fun hubForPackage(packageName: String): String? = HUB_BY_PACKAGE[packageName]
+
+fun hubForEntry(entry: AppEntry): String? =
+    entry.packageName?.let { HUB_BY_PACKAGE[it] }
+        ?: when (entry.name.lowercase()) {
+            "github" -> "github"
+            "reddit" -> "reddit"
+            "messages" -> "sms"
+            "gmail" -> "google"
+            "spotify" -> "spotify"
+            "discord" -> "discord"
+            else -> null
+        }
+
 /** Launch an installed app. Returns false when there is nothing to launch. */
 fun openApp(context: Context, packageName: String): Boolean {
     val intent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return false
