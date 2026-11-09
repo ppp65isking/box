@@ -7,10 +7,14 @@ android {
     namespace = "com.ppp65isking.box"
     // compileSdk 37: the material3 1.5.0 line (Material 3 Expressive) needs
     // compileSdk 37. sdkmanager trial 2026-11-09 FAILED (cannot find
-    // 'platforms;android-37' on any channel, stable/beta/canary) — this
-    // build trials the new android CLI instead (see workflow).
+    // 'platforms;android-37' on any channel, stable/beta/canary; the
+    // runner's cmdline-tools has no `android` binary either) — this build
+    // trials the new android CLI from a downloaded cmdline-tools 15859902
+    // instead (see workflow). The platform lands at android-37.0, so
+    // compileSdkMinor = 0 is required for AGP to resolve it.
     // targetSdk stays 36 (Play floor); minSdk stays 26.
     compileSdk = 37
+    compileSdkMinor = 0
 
     defaultConfig {
         applicationId = "com.ppp65isking.box"

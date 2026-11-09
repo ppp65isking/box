@@ -32,12 +32,21 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
-          # Trial 2026-11-09: the API-37 platform is not in sdkmanager's
-          # repo on any channel (beta/canary tried: "Failed to find
-          # package 'platforms;android-37'"). sdkmanager is deprecated;
-          # try the new android CLI instead (One-UI installs this exact
-          # package from the beta channel with it).
-          yes | android sdk install --beta platforms/android-37
+          # Trial 2026-11-09 (attempt 2): the API-37 platform is not in
+          # sdkmanager's repo on any channel, and the runner's preinstalled
+          # cmdline-tools has no `android` binary (command not found).
+          # Follow One-UI: download the current cmdline-tools (build
+          # 15859902), which ships the new android CLI, and install the
+          # version-pinned package from the beta channel with it.
+          tools_dir="${RUNNER_TEMP}/android-command-line-tools"
+          tools_zip="${RUNNER_TEMP}/commandlinetools-linux-15859902_latest.zip"
+          android_cli="${tools_dir}/cmdline-tools/bin/android"
+          mkdir -p "${tools_dir}"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip -o "${tools_zip}"
+          unzip -q "${tools_zip}" -d "${tools_dir}"
+          "${android_cli}" --no-metrics --version
+          "${android_cli}" --no-metrics --sdk="${ANDROID_HOME}" sdk install --force "platforms/android-37.0@2.0.0" --beta
+          test -f "${ANDROID_HOME}/platforms/android-37.0/android.jar"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
