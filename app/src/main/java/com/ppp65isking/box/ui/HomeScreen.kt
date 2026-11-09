@@ -233,11 +233,12 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
                                     modifier = Modifier
                                         .width(72.dp)
                                         .clickable {
-                                            hubForPackage(installed.packageName)?.let { hub ->
+                                            val hub = hubForPackage(installed.packageName)
+                                            if (hub != null) {
                                                 launchHistory.record(installed.packageName)
                                                 recentPackages = launchHistory.recent()
                                                 onOpenHub(hub)
-                                            } ?: if (openApp(context, installed.packageName)) {
+                                            } else if (openApp(context, installed.packageName)) {
                                                 launchHistory.record(installed.packageName)
                                                 recentPackages = launchHistory.recent()
                                             }
