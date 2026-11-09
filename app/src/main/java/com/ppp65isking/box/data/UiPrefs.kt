@@ -26,12 +26,26 @@ class UiPrefs(context: Context) {
      *  icon NavigationBar. Default on. */
     val floatingBar: StateFlow<Boolean> = _floatingBar.asStateFlow()
 
+    private val _healthConnect = MutableStateFlow(
+        prefs.getBoolean(KEY_HEALTH_CONNECT, true),
+    )
+
+    /** When false, Home skips Health Connect entirely — no steps read,
+     *  no steps card. Default on. */
+    val healthConnect: StateFlow<Boolean> = _healthConnect.asStateFlow()
+
     fun setFloatingBar(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_FLOATING_BAR, enabled).apply()
         _floatingBar.value = enabled
     }
 
+    fun setHealthConnect(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_HEALTH_CONNECT, enabled).apply()
+        _healthConnect.value = enabled
+    }
+
     companion object {
         private const val KEY_FLOATING_BAR = "floating_bar"
+        private const val KEY_HEALTH_CONNECT = "health_connect"
     }
 }

@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -131,14 +132,20 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
         }
     }
 
-    // Steps (Health Connect, read-only).
+    // Steps (Health Connect, read-only) — skipped entirely when the
+    // Health Connect setting is off.
+    val healthConnect by app.uiPrefs.healthConnect.collectAsState()
     var stepsState by remember { mutableStateOf<HealthConnectHelper.StepsResult?>(null) }
     var stepsReload by remember { mutableIntStateOf(0) }
     val healthPermissionLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract(),
     ) { stepsReload++ }
-    LaunchedEffect(stepsReload) {
-        stepsState = withContext(Dispatchers.IO) { app.healthConnectHelper.todaySteps() }
+    LaunchedEffect(stepsReload, healthConnect) {
+        stepsState = if (healthConnect) {
+            withContext(Dispatchers.IO) { app.healthConnectHelper.todaySteps() }
+        } else {
+            null
+        }
     }
     // Re-check when coming back from Health Connect settings, where the
     // permission can be granted by hand.
@@ -203,18 +210,20 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
                     },
                 )
             }
-            // Steps card.
-            item(span = { GridItemSpan(4) }) {
-                StepsCard(
-                    state = stepsState,
-                    onRequestPermission = {
-                        healthPermissionLauncher.launch(
-                            setOf(HealthPermission.getReadPermission(StepsRecord::class)),
-                        )
-                    },
-                    onOpenHealthConnect = { app.healthConnectHelper.openSettings() },
-                    onRetry = { stepsReload++ },
-                )
+            // Steps card — hidden when Health Connect is off.
+            if (healthConnect) {
+                item(span = { GridItemSpan(4) }) {
+                    StepsCard(
+                        state = stepsState,
+                        onRequestPermission = {
+                            healthPermissionLauncher.launch(
+                                setOf(HealthPermission.getReadPermission(StepsRecord::class)),
+                            )
+                        },
+                        onOpenHealthConnect = { app.healthConnectHelper.openSettings() },
+                        onRetry = { stepsReload++ },
+                    )
+                }
             }
             // Jump back in.
             if (recentResolved.isNotEmpty()) {

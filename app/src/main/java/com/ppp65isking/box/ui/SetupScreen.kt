@@ -34,6 +34,7 @@ fun SetupScreen() {
     val context = LocalContext.current
     val app = context.applicationContext as BoxApp
     val floatingBar by app.uiPrefs.floatingBar.collectAsState()
+    val healthConnect by app.uiPrefs.healthConnect.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         BoxHeader("Settings")
@@ -61,6 +62,28 @@ fun SetupScreen() {
                 Switch(
                     checked = floatingBar,
                     onCheckedChange = { app.uiPrefs.setFloatingBar(it) },
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Health Connect",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Show your steps on Home. Off means Box never reads Health Connect.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = healthConnect,
+                    onCheckedChange = { app.uiPrefs.setHealthConnect(it) },
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
