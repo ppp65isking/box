@@ -207,7 +207,7 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
             // it when it failed to load.
             item(span = { GridItemSpan(4) }) {
                 GreetingHero(
-                    weatherState = weatherState,
+                    state = weatherState,
                     onWeatherRetry = {
                         scope.launch {
                             weatherState = WeatherState.Loading
@@ -348,10 +348,13 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
                 }
             } else {
                 item(span = { GridItemSpan(4) }) {
+                    // Local copy: 'category' is a delegated property, so
+                    // it cannot be smart-cast in the when below.
+                    val currentCategory = category
                     Text(
                         text = when {
                             query.isNotBlank() -> "Results"
-                            category != null -> category.label
+                            currentCategory != null -> currentCategory.label
                             else -> "All apps"
                         },
                         style = MaterialTheme.typography.titleMedium,
