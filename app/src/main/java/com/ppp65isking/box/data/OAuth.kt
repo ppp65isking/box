@@ -3,6 +3,7 @@ package com.ppp65isking.box.data
 import android.content.Context
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
+import com.ppp65isking.box.BuildConfig
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -21,8 +22,16 @@ import java.util.Base64
 /**
  * The three first-party OAuth services Box connects to.
  *
- * All three use Authorization Code + PKCE, so no client secret is needed
- * or stored anywhere. The client ID for each is Box's own developer
+ * All three use Authorization Code + PKCE. Spotify and Discord accept
+ * PKCE-only, so no client secret is needed or stored for them. Google
+ * is the exception: its Desktop OAuth clients reject the token endpoint
+ * with `invalid_request: client_secret is missing` unless the Desktop
+ * client's secret is sent ALONGSIDE the PKCE verifier, on both the
+ * code exchange and the refresh — even though Google's docs label the
+ * secret "optional". That secret is the app's own developer credential,
+ * injected by CI from the GOOGLE_CLIENT_SECRET repo secret into
+ * BuildConfig; it never lives in this repo or in the app's source (see
+ * SETUP.md). The client ID for each is Box's own developer
  * client, registered once by Anthony (see SETUP.md) and shipped in the
  * app in [OAuthConfig]. A user who taps Connect signs in with THEIR OWN
  * Google / Spotify / Discord account — Box then stores that user's token,
@@ -220,10 +229,20 @@ private fun postToken(request: Request, okHttp: OkHttpClient): TokenPost {
     return TokenPost.NetworkFailed(lastError)
 }
 
-/** Exchange an authorization code for tokens (PKCE — no client secret).
- *  The provider's refusal reason comes back in [ExchangeResult.error]
- *  instead of failing silently, so the sign-in screen can say what
- *  actually went wrong. Callers must run this on Dispatchers.IO. */
+/** Google's Desktop OAuth client secret, injected by CI from the
+ *  GOOGLE_CLIENT_SECRET repo secret into BuildConfig — null on local
+ *  builds without the env var (Google sign-in then fails with the
+ *  provider's own error instead of crashing). Google is the only
+ *  service that ever sends it: Spotify and Discord accept PKCE-only. */
+private fun googleClientSecret(): String? =
+    BuildConfig.GOOGLE_CLIENT_SECRET.takeIf { it.isNotBlank() }
+
+/** Exchange an authorization code for tokens (PKCE + Google's Desktop
+ *  client_secret, sent together — never one without the other for
+ *  Google). The provider's refusal reason comes back in
+ *  [ExchangeResult.error] instead of failing silently, so the sign-in
+ *  screen can say what actually went wrong. Callers must run this on
+ *  Dispatchers.IO. */
 fun exchangeCode(
     service: OAuthService,
     code: String,
@@ -234,13 +253,19 @@ fun exchangeCode(
         ?: return ExchangeResult(null, "no client ID for this service")
     val verifier = store.pkceVerifier
         ?: return ExchangeResult(null, "the sign-in session was lost")
-    val body = FormBody.Builder()
+    val bodyBuilder = FormBody.Builder()
         .add("grant_type", "authorization_code")
         .add("code", code)
         .add("redirect_uri", redirectUri(service, store))
         .add("client_id", clientId)
         .add("code_verifier", verifier)
-        .build()
+    if (service == OAuthService.GOOGLE) {
+        // Google's Desktop clients demand the client_secret alongside
+        // the PKCE verifier — without it the exchange is refused with
+        // `invalid_request: client_secret is missing.`
+        googleClientSecret()?.let { bodyBuilder.add("client_secret", it) }
+    }
+    val body = bodyBuilder.build()
     val request = Request.Builder()
         .url(service.tokenUrl)
         .post(body)
@@ -315,8 +340,10 @@ sealed interface RefreshResult {
     data object NetworkFailed : RefreshResult
 }
 
-/** Trade a refresh token for a fresh access token. Callers must run
- *  this on Dispatchers.IO. */
+/** Trade a refresh token for a fresh access token. For Google the
+ *  Desktop client_secret goes along too — miss it and the account
+ *  breaks ~1h after setup, when the first refresh runs. Callers must
+ *  run this on Dispatchers.IO. */
 fun refreshAccessToken(
     service: OAuthService,
     store: OAuthStore,
@@ -324,11 +351,14 @@ fun refreshAccessToken(
 ): RefreshResult {
     val clientId = store.clientId(service) ?: return RefreshResult.Refused
     val refresh = store.refreshToken(service) ?: return RefreshResult.Refused
-    val body = FormBody.Builder()
+    val bodyBuilder = FormBody.Builder()
         .add("grant_type", "refresh_token")
         .add("refresh_token", refresh)
         .add("client_id", clientId)
-        .build()
+    if (service == OAuthService.GOOGLE) {
+        googleClientSecret()?.let { bodyBuilder.add("client_secret", it) }
+    }
+    val body = bodyBuilder.build()
     val request = Request.Builder()
         .url(service.tokenUrl)
         .post(body)

@@ -40,6 +40,11 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
+        env:
+          # Google sign-in needs the Desktop client_secret on the token
+          # exchange + refresh (see OAuth.kt). Injected from the repo
+          # secret into BuildConfig; never printed or committed.
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK

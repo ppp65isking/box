@@ -14,16 +14,22 @@ service's screen and sign in with **their own** Google / Spotify /
 Discord account. Box then stores *that user's* token on their own phone.
 
 Same principle as the Reddit integration: its client ID is Box's app ID,
-not per-user. No client secrets are involved anywhere — all three
-services use Authorization Code + PKCE, so the client ID alone is the
-credential.
+not per-user. Spotify and Discord need no client secret — they use
+Authorization Code + PKCE, so the client ID alone is the credential.
+Google is the one exception (see §1, step 4): its Desktop OAuth clients
+demand the client_secret on the token exchange and refresh, alongside
+PKCE. That secret lives only as a GitHub repo secret
+(`GOOGLE_CLIENT_SECRET`), injected by CI into the build — it never
+appears in this repo or in the app's source.
 
 **Why embedding the IDs is safe:** an OAuth client ID is a public
 identifier, not a secret — it shows up in the sign-in URL of every app
-that uses one. The secret part of OAuth (the client secret) doesn't
-exist here at all, because PKCE replaces it. Nothing sensitive ships
-in the app; the IDs just tell Google / Spotify / Discord / Reddit
-which Box app is asking.
+that uses one. For Spotify/Discord/Reddit there is no client secret at
+all, because PKCE replaces it. Google's Desktop client does have a
+secret, but Google's own installed-app guidance treats it as
+non-confidential (PKCE is the real protection) — and Box still never
+puts it in the repo: it arrives only through the `GOOGLE_CLIENT_SECRET`
+repo secret at build time.
 
 ---
 
@@ -55,14 +61,24 @@ Steps:
      for a personal app — tap Advanced → Go to Box to continue. Full
      verification is only needed if Box goes public.
 4. **Create the OAuth client** (Credentials → Create Credentials →
-   OAuth client ID → application type **Desktop app**). Desktop apps
-   need no client secret with PKCE. The create form asks for no
-   redirect, and the client's edit page has no redirect field either —
-   that is normal: Desktop clients cannot register a redirect URI at
-   all. Box instead uses a loopback redirect
+   OAuth client ID → application type **Desktop app**). The create form
+   asks for no redirect, and the client's edit page has no redirect
+   field either — that is normal: Desktop clients cannot register a
+   redirect URI at all. Box instead uses a loopback redirect
    (`http://127.0.0.1:<port>/`, a fresh port per sign-in), which
    Google accepts for Desktop clients with no registration. There is
    nothing to paste into the console for the redirect.
+   **The Desktop client_secret IS required anyway:** Google's token
+   endpoint rejects the code exchange (and the refresh) with
+   `invalid_request: client_secret is missing` unless the secret is
+   sent alongside the PKCE verifier — even though Google's docs label
+   it "optional". So after creating the client, add its secret as a
+   GitHub repo secret: box → Settings → Secrets and variables →
+   Actions → New repository secret, name `GOOGLE_CLIENT_SECRET`,
+   value the secret from the console. CI injects it into the build
+   (`BuildConfig.GOOGLE_CLIENT_SECRET`); it must never be pasted
+   into chat or committed to the repo. Without it, Google sign-in
+   fails at the exchange step.
 5. Copy the **Client ID** (the long `….apps.googleusercontent.com`
    string — not the secret) and **give it to Cosmo once**. It goes in
    `OAuthConfig.kt` (`GOOGLE_CLIENT_ID`) and ships with the app.

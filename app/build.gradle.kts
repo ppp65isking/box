@@ -16,6 +16,19 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+
+        // Google's Desktop OAuth client needs its client_secret sent on
+        // the token exchange AND the refresh, alongside the PKCE verifier
+        // (Google's endpoint enforces it even though the docs call it
+        // "optional"). The secret is injected by CI from the
+        // GOOGLE_CLIENT_SECRET repo secret and never lives in this repo;
+        // local builds without the env var get an empty string and still
+        // compile (Google sign-in just fails with the provider's error).
+        buildConfigField(
+            "String",
+            "GOOGLE_CLIENT_SECRET",
+            "\"${System.getenv("GOOGLE_CLIENT_SECRET") ?: ""}\"",
+        )
     }
 
     buildTypes {
@@ -43,6 +56,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
