@@ -1,4 +1,4 @@
-# Box — Developer Setup (Google, Spotify, Discord)
+# Box — Developer Setup (Google, Spotify, Discord, Microsoft)
 
 This page is for **Anthony-as-developer**, not for people using Box.
 
@@ -168,6 +168,76 @@ app" client ID — free, no user login, no secret.
 3. Reddit search starts working; browsing r/popular and subreddits
    never needed the ID.
 
+## 5. Microsoft (Outlook mail + calendar, OneDrive)
+
+What it does: one sign-in, Outlook mail (read, search, reply,
+compose), calendar events for the next 7 days (bundled into the
+Email tab, Outlook-style), OneDrive files (browse, search, folders,
+read-only).
+
+Scopes Box asks for (all delegated Microsoft Graph, no admin
+consent needed): `User.Read Mail.Read Mail.Send Calendars.Read
+Files.Read offline_access` (`offline_access` is what gets a refresh
+token, so Box stays signed in).
+
+**The Azure offer in the GitHub Student Pack:** claim **Azure for
+Students** from the pack (education.github.com/pack → Azure offer).
+It is free, needs no credit card, and gives $100 of Azure credit —
+but the app registration itself is free and does not use the credit.
+Claiming it gives you an Azure account/tenant to register the app
+under; if you already have a Microsoft account you can also register
+straight from the Entra admin center without it.
+
+Steps:
+
+1. Go to the [Microsoft Entra admin center](https://entra.microsoft.com)
+   → **App registrations** → **New registration**. Name it Box.
+2. **Supported account types:** pick **Accounts in any organizational
+   directory and personal Microsoft accounts** — that covers both a
+   school/work account and a personal Outlook/Hotmail account signing
+   in.
+3. Leave **Redirect URI** empty on this form; it is set on the next
+   screen. Click **Register**.
+4. On the app's page, go to **Authentication** → **Add a platform**
+   → **Mobile and desktop applications**. Under **Custom redirect
+   URIs** add **exactly** `box://oauth/microsoft` and click
+   **Configure**. (Entra accepts a custom `<scheme>://<path>` URI for
+   native apps — this is the form Box uses, same pattern as
+   `box://oauth/spotify` and `box://oauth/discord`. If the portal ever
+   refuses it, the MSAL fallback is `msauth://com.ppp65isking.box/<signature-hash>`,
+   using the app's signing-certificate SHA-1 — ask Cosmo, it needs the
+   debug keystore hash.)
+5. Still on **Authentication**, the app is a public client by
+   default under this platform — no secret is created and none is
+   needed: Box uses Authorization Code + PKCE, same as Spotify and
+   Discord.
+6. Go to **API permissions** → **Add a permission** → **Microsoft
+   Graph** → **Delegated permissions**, and add: `User.Read`,
+   `Mail.Read`, `Mail.Send`, `Calendars.Read`, `Files.Read`,
+   `offline_access`. (These are all user-consentable — no admin
+   consent is needed, and no "Grant admin consent" step is required
+   for a personal account.)
+7. Copy the **Application (client) ID** from the app's Overview page
+   (the GUID — not a secret) and **give it to Cosmo once**. It goes in
+   `OAuthConfig.kt` (`MICROSOFT_CLIENT_ID`) and ships with the app.
+8. In Box, tap **Outlook** or **OneDrive** on Home to open the
+   Microsoft hub, then **Connect Microsoft** and sign in with your
+   own Microsoft account.
+
+Until the client ID is in, the Microsoft hub says plainly that
+sign-in isn't available yet — same as Reddit's paused state. The hub
+is Email (Outlook mail + calendar bundled) and Files (OneDrive); a
+third tab is still undecided.
+
+**Xbox was checked and dropped (2026-11-09):** the Xbox Live auth
+path (XSTS token flow) was verified live — `login.live.com`,
+`xsts.auth.xboxlive.com`, `profile.xboxlive.com`,
+`social.xboxlive.com`, `userpresence.xboxlive.com` and
+`titlehub.xboxlive.com` all answer — but Anthony dropped the Xbox
+tab before it was built. If he re-picks it, the tab needs its own
+Xbox Live sign-in (separate from the Graph login), via the
+community-documented XSTS flow against login.live.com.
+
 ---
 
 ## Testing it end to end
@@ -189,14 +259,15 @@ app" client ID — free, no user login, no secret.
 - `app/src/main/java/com/ppp65isking/box/data/OAuthStore.kt` — user
   tokens in SharedPreferences.
 - `app/src/main/java/com/ppp65isking/box/data/GoogleClient.kt`,
-  `SpotifyClient.kt`, `DiscordClient.kt` — the API calls (read-only,
-  except Spotify play/pause).
+  `SpotifyClient.kt`, `DiscordClient.kt`, `MicrosoftGraphClient.kt`
+  — the API calls (read-only, except Spotify play/pause, Gmail
+  send/star, and Outlook reply/compose).
 - `app/src/main/java/com/ppp65isking/box/data/RedditClient.kt` —
   Reddit browsing + app-only OAuth search.
 - `app/src/main/java/com/ppp65isking/box/ui/GoogleScreen.kt`,
-  `SpotifyScreen.kt`, `DiscordScreen.kt`, `RedditScreen.kt` — the
-  screens. Each one owns its own Connect card at the top; nothing
-  about accounts lives in Settings.
+  `SpotifyScreen.kt`, `DiscordScreen.kt`, `RedditScreen.kt`,
+  `MicrosoftScreen.kt` — the screens. Each one owns its own Connect
+  card at the top; nothing about accounts lives in Settings.
 - `app/src/main/java/com/ppp65isking/box/ui/SetupScreen.kt` —
   Settings (floating bottom bar toggle only).
 - `BoxApp.handleOAuthRedirect()` — the `box://oauth/<service>` return

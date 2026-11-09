@@ -5,6 +5,7 @@ import com.ppp65isking.box.model.DriveFile
 import com.ppp65isking.box.model.GmailFullMessage
 import com.ppp65isking.box.model.GmailMessage
 import com.ppp65isking.box.model.GmailPage
+import com.ppp65isking.box.model.GmailThreadMessage
 import com.ppp65isking.box.model.GoogleProfile
 import com.ppp65isking.box.model.PhotoItem
 import kotlinx.serialization.json.Json
@@ -88,7 +89,9 @@ class GoogleClient(private val okHttp: OkHttpClient) {
      *  search string, e.g. "from:amazon". Pass the previous page's
      *  [GmailPage.nextPageToken] to load more; it is null on the
      *  last page. 25 per page — the list grows with "Load more"
-     *  instead of a short fixed list. */
+     *  instead of a short fixed list. Each message also carries its
+     *  labelIds, so the list can render Gmail-style (bold unread,
+     *  star, category chips). */
     fun messages(
         token: String,
         query: String?,
@@ -128,12 +131,17 @@ class GoogleClient(private val okHttp: OkHttpClient) {
                         val value = obj["value"]?.jsonPrimitive?.contentOrNull
                         if (name != null && value != null) name to value else null
                     }.toMap()
+                val labelIds = root["labelIds"]?.jsonArray.orEmpty()
+                    .mapNotNull { it.jsonPrimitive.contentOrNull }
                 GmailMessage(
                     id = id,
                     subject = headers["Subject"] ?: "(no subject)",
                     from = headers["From"] ?: "Unknown sender",
                     date = headers["Date"],
                     snippet = root["snippet"]?.jsonPrimitive?.contentOrNull,
+                    unread = "UNREAD" in labelIds,
+                    starred = "STARRED" in labelIds,
+                    labels = labelIds.mapNotNull { CATEGORY_LABELS[it] },
                 )
             }) {
                 is Result.Ok -> full.value
@@ -176,6 +184,81 @@ class GoogleClient(private val okHttp: OkHttpClient) {
             )
         }
 
+    /** The whole conversation a message belongs to, oldest first —
+     *  the reader shows the thread stacked, Gmail-style. A thread
+     *  with one message reads exactly like the old single-message
+     *  reader. Returns null (not an error) when the thread can't be
+     *  loaded, so the caller falls back to the single message. */
+    fun thread(token: String, threadId: String): List<GmailThreadMessage>? {
+        val result = runCall(
+            "https://gmail.googleapis.com/gmail/v1/users/me/threads/$threadId" +
+                "?format=full",
+            token,
+        ) { root ->
+            root["messages"]?.jsonArray.orEmpty().mapNotNull { item ->
+                runCatching {
+                    val obj = item.jsonObject
+                    val headers = obj["payload"]?.jsonObject
+                        ?.get("headers")?.jsonArray.orEmpty()
+                        .mapNotNull {
+                            val header = it.jsonObject
+                            val name = header["name"]?.jsonPrimitive?.contentOrNull
+                            val value = header["value"]?.jsonPrimitive?.contentOrNull
+                            if (name != null && value != null) name to value else null
+                        }.toMap()
+                    val payload = obj["payload"]?.jsonObject
+                    GmailThreadMessage(
+                        id = obj["id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                        from = headers["From"] ?: "Unknown sender",
+                        date = headers["Date"],
+                        body = payload?.let { extractTextBody(it) }.orEmpty()
+                            .ifBlank {
+                                obj["snippet"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                            },
+                    )
+                }.getOrNull()
+            }
+        }
+        return when (result) {
+            is Result.Ok -> result.value.ifEmpty { null }
+            else -> null
+        }
+    }
+
+    /** Add / remove Gmail labels on a message — STARRED for the star
+     *  toggle, UNREAD removal to mark a message read when opened.
+     *  Silent best-effort: a failure just leaves the list as it was. */
+    fun modifyLabels(
+        token: String,
+        messageId: String,
+        add: List<String> = emptyList(),
+        remove: List<String> = emptyList(),
+    ): Result<Unit> {
+        val body = buildJsonObject {
+            if (add.isNotEmpty()) {
+                put(
+                    "addLabelIds",
+                    kotlinx.serialization.json.JsonArray(
+                        add.map { kotlinx.serialization.json.JsonPrimitive(it) },
+                    ),
+                )
+            }
+            if (remove.isNotEmpty()) {
+                put(
+                    "removeLabelIds",
+                    kotlinx.serialization.json.JsonArray(
+                        remove.map { kotlinx.serialization.json.JsonPrimitive(it) },
+                    ),
+                )
+            }
+        }.toString()
+        return postJson(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/$messageId/modify",
+            token,
+            body,
+        )
+    }
+
     /** Send a message built by [buildRawMessage]. [threadId] threads
      *  a reply into the original thread; null sends a new message.
      *  A 403 means the grant predates the gmail.send scope — the user
@@ -204,8 +287,8 @@ class GoogleClient(private val okHttp: OkHttpClient) {
                 if (response.code == 401) return Result.Unauthorized
                 if (response.code == 403) {
                     return Result.Error(
-                        "Google refused — tap Connect again to allow " +
-                            "sending mail.",
+                        "Google refused — tap Connect again to update " +
+                            "the permissions.",
                     )
                 }
                 if (!response.isSuccessful) {
@@ -329,6 +412,17 @@ class GoogleClient(private val okHttp: OkHttpClient) {
 
     private fun encode(value: String): String =
         java.net.URLEncoder.encode(value, Charsets.UTF_8)
+
+    companion object {
+        /** Gmail category labelIds → the chip text the list shows. */
+        val CATEGORY_LABELS = mapOf(
+            "CATEGORY_PERSONAL" to "Primary",
+            "CATEGORY_SOCIAL" to "Social",
+            "CATEGORY_PROMOTIONS" to "Promotions",
+            "CATEGORY_UPDATES" to "Updates",
+            "CATEGORY_FORUMS" to "Forums",
+        )
+    }
 }
 
 /** Build an RFC 822 message and base64url-encode it for the Gmail

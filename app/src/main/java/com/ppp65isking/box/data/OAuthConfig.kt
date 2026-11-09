@@ -31,6 +31,12 @@ object OAuthConfig {
 
     /** Reddit "installed app" client ID, for app-only search OAuth. */
     const val REDDIT_CLIENT_ID: String = ""
+
+    /** Microsoft Entra app registration's Application (client) ID,
+     *  for the Microsoft hub (Outlook mail + calendar, OneDrive).
+     *  Blank until Anthony creates the registration (SETUP.md §5) —
+     *  while blank the hub says sign-in isn't available yet. */
+    const val MICROSOFT_CLIENT_ID: String = ""
 }
 
 /** The shipped client ID for an OAuth service, or null while blank. */
@@ -39,6 +45,7 @@ fun OAuthService.configuredClientId(): String? =
         OAuthService.GOOGLE -> OAuthConfig.GOOGLE_CLIENT_ID
         OAuthService.SPOTIFY -> OAuthConfig.SPOTIFY_CLIENT_ID
         OAuthService.DISCORD -> OAuthConfig.DISCORD_CLIENT_ID
+        OAuthService.MICROSOFT -> OAuthConfig.MICROSOFT_CLIENT_ID
     }.takeIf { it.isNotBlank() }
 
 /** The shipped Reddit client ID, or null while blank. */

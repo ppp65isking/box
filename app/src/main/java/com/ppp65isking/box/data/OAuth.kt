@@ -20,22 +20,32 @@ import java.security.SecureRandom
 import java.util.Base64
 
 /**
- * The three first-party OAuth services Box connects to.
+ * The four first-party OAuth services Box connects to.
  *
- * All three use Authorization Code + PKCE. Spotify and Discord accept
- * PKCE-only, so no client secret is needed or stored for them. Google
- * is the exception: its Desktop OAuth clients reject the token endpoint
- * with `invalid_request: client_secret is missing` unless the Desktop
- * client's secret is sent ALONGSIDE the PKCE verifier, on both the
- * code exchange and the refresh — even though Google's docs label the
- * secret "optional". That secret is the app's own developer credential,
- * injected by CI from the GOOGLE_CLIENT_SECRET repo secret into
- * BuildConfig; it never lives in this repo or in the app's source (see
- * SETUP.md). The client ID for each is Box's own developer
- * client, registered once by Anthony (see SETUP.md) and shipped in the
- * app in [OAuthConfig]. A user who taps Connect signs in with THEIR OWN
- * Google / Spotify / Discord account — Box then stores that user's token,
- * never Anthony's and never the developer's.
+ * All four use Authorization Code + PKCE. Spotify, Discord and
+ * Microsoft accept PKCE-only, so no client secret is needed or
+ * stored for them. Google is the exception: its Desktop OAuth clients
+ * reject the token endpoint with `invalid_request: client_secret is
+ * missing` unless the Desktop client's secret is sent ALONGSIDE the
+ * PKCE verifier, on both the code exchange and the refresh — even
+ * though Google's docs label the secret "optional". That secret is
+ * the app's own developer credential, injected by CI from the
+ * GOOGLE_CLIENT_SECRET repo secret into BuildConfig; it never lives
+ * in this repo or in the app's source (see SETUP.md). The client ID
+ * for each is Box's own developer client, registered once by Anthony
+ * (see SETUP.md) and shipped in the app in [OAuthConfig]. A user who
+ * taps Connect signs in with THEIR OWN Google / Spotify / Discord /
+ * Microsoft account — Box then stores that user's token, never
+ * Anthony's and never the developer's.
+ *
+ * Microsoft note: the app registration is a public client under
+ * "Mobile and desktop applications" in Entra, with the redirect URI
+ * box://oauth/microsoft (a custom scheme — Entra accepts
+ * <scheme>://<path> for native apps). Scopes are delegated Microsoft
+ * Graph permissions; no admin consent is needed for these. The
+ * client ID is blank until Anthony creates the registration (see
+ * SETUP.md §5) — until then the Microsoft hub says plainly that
+ * sign-in isn't available yet, exactly like Reddit's paused state.
  *
  * Discord honesty note: the `messages.read` scope is NOT requested. Per
  * Discord's own docs it exists for local RPC server access only — a user
@@ -67,6 +77,10 @@ enum class OAuthService(
             // has to tap Connect again once (prompt=consent below
             // re-asks for the full list); that is expected, not a bug.
             "https://www.googleapis.com/auth/gmail.send",
+            // Modify: starring and marking read (messages.modify) —
+            // gmail.send does not cover it. Same reconnect-once note
+            // as above.
+            "https://www.googleapis.com/auth/gmail.modify",
             "https://www.googleapis.com/auth/calendar.readonly",
             "https://www.googleapis.com/auth/drive.readonly",
             "https://www.googleapis.com/auth/documents.readonly",
@@ -98,6 +112,23 @@ enum class OAuthService(
         // identify + email: profile. guilds: server list. No messages.read —
         // it is RPC-only per Discord's docs (see the class doc above).
         scopes = listOf("identify", "email", "guilds"),
+    ),
+    MICROSOFT(
+        key = "microsoft",
+        label = "Microsoft",
+        authUrl = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        tokenUrl = "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        // Delegated Microsoft Graph scopes. offline_access is what
+        // gets a refresh token, so Box stays signed in. All of these
+        // are user-consentable — no admin consent needed.
+        scopes = listOf(
+            "User.Read",
+            "Mail.Read",
+            "Mail.Send",
+            "Calendars.Read",
+            "Files.Read",
+            "offline_access",
+        ),
     );
 
     companion object {

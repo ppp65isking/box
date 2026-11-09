@@ -60,15 +60,30 @@ fun resolveEntry(
 
 /** Box has a built-in Hub for a few apps — tap one on Home and the Hub
  *  opens instead of launching the outside app. Keyed by package, with a
- *  name fallback for catalog entries whose package is unknown. */
+ *  name fallback for catalog entries whose package is unknown.
+ *
+ *  A value may carry a tab after a colon ("google:calendar") — the
+ *  hub opens on that tab instead of its default. Google apps open the
+ *  Google hub on their own tab (Gmail → Email, Calendar → Calendar,
+ *  Drive/Docs/Slides → Drive); Microsoft apps open the Microsoft hub
+ *  (Outlook → Email, OneDrive → Files). Xbox and Copilot are NOT here
+ *  on purpose — they have no matching tab, so they launch externally.
+ *  Everything else (YouTube, Maps, Photos, Messages, Meet…) keeps its
+ *  current behavior. */
 private val HUB_BY_PACKAGE = mapOf(
     "com.github.android" to "github",
     "com.reddit.frontpage" to "reddit",
     "com.google.android.apps.messaging" to "sms",
     "com.google.android.gm" to "google",
+    "com.google.android.calendar" to "google:calendar",
+    "com.google.android.apps.docs" to "google:drive",
+    "com.google.android.apps.docs.editors.docs" to "google:drive",
+    "com.google.android.apps.docs.editors.slides" to "google:drive",
     "com.spotify.music" to "spotify",
     "com.discord" to "discord",
     "com.valvesoftware.android.steam.community" to "steam",
+    "com.microsoft.office.outlook" to "microsoft:mail",
+    "com.microsoft.skydrive" to "microsoft:files",
 )
 
 fun hubForPackage(packageName: String): String? = HUB_BY_PACKAGE[packageName]
@@ -80,9 +95,15 @@ fun hubForEntry(entry: AppEntry): String? =
             "reddit" -> "reddit"
             "messages" -> "sms"
             "gmail" -> "google"
+            "calendar" -> "google:calendar"
+            "drive" -> "google:drive"
+            "docs" -> "google:drive"
+            "slides" -> "google:drive"
             "spotify" -> "spotify"
             "discord" -> "discord"
             "steam" -> "steam"
+            "outlook" -> "microsoft:mail"
+            "onedrive" -> "microsoft:files"
             else -> null
         }
 

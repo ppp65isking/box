@@ -90,7 +90,7 @@ class OAuthStore(context: Context) {
             prefs.edit().putString(KEY_OAUTH_STATE, value).apply()
         }
 
-    /** Which service the in-flight login belongs to ("google"/"spotify"/"discord"). */
+    /** Which service the in-flight login belongs to ("google"/"spotify"/"discord"/"microsoft"). */
     var pendingService: String?
         get() = prefs.getString(KEY_PENDING_SERVICE, null)
         set(value) {

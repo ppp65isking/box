@@ -11,6 +11,7 @@ import com.ppp65isking.box.data.GoogleClient
 import com.ppp65isking.box.data.GitHubClient
 import com.ppp65isking.box.data.HealthConnectHelper
 import com.ppp65isking.box.data.LoopbackOAuthServer
+import com.ppp65isking.box.data.MicrosoftGraphClient
 import com.ppp65isking.box.data.OAuthService
 import com.ppp65isking.box.data.OAuthStore
 import com.ppp65isking.box.data.RedditAuthStore
@@ -85,6 +86,8 @@ class BoxApp : Application() {
     val uiPrefs: UiPrefs by lazy { UiPrefs(this) }
 
     val googleClient: GoogleClient by lazy { GoogleClient(okHttp) }
+
+    val microsoftClient: MicrosoftGraphClient by lazy { MicrosoftGraphClient(okHttp) }
 
     val spotifyClient: SpotifyClient by lazy { SpotifyClient(okHttp) }
 
@@ -281,6 +284,10 @@ class BoxApp : Application() {
             }
             OAuthService.DISCORD -> when (val r = discordClient.me(tokens.accessToken)) {
                 is DiscordClient.Result.Ok -> r.value.email ?: r.value.username
+                else -> null
+            }
+            OAuthService.MICROSOFT -> when (val r = microsoftClient.me(tokens.accessToken)) {
+                is MicrosoftGraphClient.Result.Ok -> r.value
                 else -> null
             }
         }

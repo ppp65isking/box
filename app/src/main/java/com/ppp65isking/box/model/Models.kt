@@ -81,13 +81,28 @@ data class GoogleProfile(
     val pictureUrl: String?,
 )
 
-/** One Gmail message (subject/from/date + snippet). */
+/** One Gmail message (subject/from/date + snippet). `unread` /
+ *  `starred` / `labels` come from the message's labelIds (see
+ *  GoogleClient.messages) — the list renders Gmail-style: bold
+ *  unread rows, a star toggle, category chips. */
 data class GmailMessage(
     val id: String,
     val subject: String,
     val from: String,
     val date: String?,
     val snippet: String?,
+    val unread: Boolean = false,
+    val starred: Boolean = false,
+    val labels: List<String> = emptyList(),
+)
+
+/** One message inside a Gmail thread — the reader shows the whole
+ *  conversation stacked, newest last, Gmail-style. */
+data class GmailThreadMessage(
+    val id: String,
+    val from: String,
+    val date: String?,
+    val body: String,
 )
 
 /** One page of Gmail results — [nextPageToken] is null on the last
@@ -139,6 +154,54 @@ data class PhotoItem(
     val filename: String?,
     val mimeType: String?,
     val baseUrl: String?,
+)
+
+/** --- Microsoft (one OAuth sign-in via Microsoft Graph) --- */
+
+/** One Outlook message in the inbox list. */
+data class MsMailMessage(
+    val id: String,
+    val subject: String,
+    val from: String,
+    val receivedDateTime: String?,
+    val bodyPreview: String?,
+    val isRead: Boolean,
+    val conversationId: String?,
+)
+
+/** One page of Outlook results — Graph hands back an @odata.nextLink
+ *  instead of a page token; null means the last page. */
+data class MsMailPage(
+    val messages: List<MsMailMessage>,
+    val nextLink: String?,
+)
+
+/** One Outlook message, opened to read. `body` is plain text when
+ *  the message is text, or HTML stripped to text. */
+data class MsMailFull(
+    val id: String,
+    val subject: String,
+    val from: String,
+    val to: String?,
+    val receivedDateTime: String?,
+    val body: String,
+    val conversationId: String?,
+)
+
+/** One Outlook calendar event in the next 7 days. */
+data class MsEvent(
+    val subject: String,
+    val start: String?,
+    val location: String?,
+)
+
+/** One OneDrive item (file or folder). */
+data class MsDriveItem(
+    val id: String,
+    val name: String,
+    val isFolder: Boolean,
+    val webUrl: String?,
+    val lastModified: String?,
 )
 
 /** --- Spotify (user OAuth sign-in) --- */

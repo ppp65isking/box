@@ -64,7 +64,9 @@ import com.ppp65isking.box.ui.GoogleScreen
 import com.ppp65isking.box.ui.GoogleTab
 import com.ppp65isking.box.ui.HomeScreen
 import com.ppp65isking.box.ui.InboxScreen
+import com.ppp65isking.box.ui.MicrosoftScreen
 import com.ppp65isking.box.ui.MoreScreen
+import com.ppp65isking.box.ui.MsTab
 import com.ppp65isking.box.ui.MusicScreen
 import com.ppp65isking.box.ui.RedditScreen
 import com.ppp65isking.box.ui.SetupScreen
@@ -109,10 +111,41 @@ class MainActivity : ComponentActivity() {
 private fun BoxNav() {
     var destination by remember { mutableStateOf(Destination.HOME) }
     // Secondary destinations live under More (no bottom-bar slot).
+    // A hub value may carry a tab after a colon ("google:calendar",
+    // "microsoft:files") — the hub opens on that tab. hubKey is the
+    // hub, hubArg the tab; the `when` below switches on hubKey.
     var secondary by remember { mutableStateOf<String?>(null) }
     // The Google hub's tab — owned here so the Google-style bottom
     // bar (shown while the hub is open) and the hub screen agree.
     var googleTab by remember { mutableStateOf(GoogleTab.MAIL) }
+    // The Microsoft hub's tab — same pattern as the Google hub.
+    var microsoftTab by remember { mutableStateOf(MsTab.MAIL) }
+
+    val hubKey = secondary?.substringBefore(":")
+    val hubArg = secondary?.substringAfter(":", "")
+    // Opening a hub from Home lands on its tab; tapping tabs inside
+    // the hub only changes the tab state, not `secondary`, so this
+    // fires once per open.
+    LaunchedEffect(secondary) {
+        if (hubKey == "google") {
+            googleTab = when (hubArg) {
+                "calendar" -> GoogleTab.CALENDAR
+                "drive" -> GoogleTab.DRIVE
+                else -> GoogleTab.MAIL
+            }
+        }
+        if (hubKey == "microsoft") {
+            microsoftTab = when (hubArg) {
+                "files" -> MsTab.FILES
+                else -> MsTab.MAIL
+            }
+        }
+    }
+    // A hub bar replaces the Box bar while a hub is open — the
+    // standard bar must hide too, or both bars stack (the bug this
+    // build fixes: with the floating bar off, the Google hub showed
+    // the standard bar AND the hub bar).
+    val hubBarVisible = hubKey == "google" || hubKey == "microsoft"
 
     // Android 13+: ask once at startup for Box's own notification
     // permission, so the music-playback notification can show. Everything
@@ -161,9 +194,11 @@ private fun BoxNav() {
         // The floating bar is NOT a Scaffold bottom bar: it overlays the
         // content (see below) so lists scroll underneath it. Only the
         // standard bar takes the slot — and foldables take neither,
-        // they get the vertical rail instead.
+        // they get the vertical rail instead. A hub bar replaces the
+        // Box bar entirely while a hub is open, so the standard bar
+        // hides then too (never two bars).
         bottomBar = {
-            if (!floatingBar && !isFoldable) {
+            if (!floatingBar && !isFoldable && !hubBarVisible) {
                 NavigationBar {
                     Destination.entries.forEach { entry ->
                         NavigationBarItem(
@@ -200,7 +235,7 @@ private fun BoxNav() {
                         },
                     ),
             ) {
-                when (secondary) {
+                when (hubKey) {
                     "github" -> GitHubScreen()
                     "reddit" -> RedditScreen()
                     "sms" -> SmsScreen()
@@ -210,6 +245,14 @@ private fun BoxNav() {
                             secondary = null
                             destination = Destination.HOME
                             googleTab = GoogleTab.MAIL
+                        },
+                    )
+                    "microsoft" -> MicrosoftScreen(
+                        tab = microsoftTab,
+                        onBack = {
+                            secondary = null
+                            destination = Destination.HOME
+                            microsoftTab = MsTab.MAIL
                         },
                     )
                     "spotify" -> SpotifyScreen()
@@ -226,13 +269,25 @@ private fun BoxNav() {
                     }
                 }
             }
-            // While the Google hub is open the Box bar is replaced by
-            // a Google-style Email / Calendar / Drive bar; leaving the
-            // hub (its back button) restores the normal bar.
-            if (secondary == "google") {
-                GoogleBar(
-                    selected = googleTab,
-                    onSelect = { googleTab = it },
+            // While a hub is open its bar replaces the Box bar; leaving
+            // the hub (its back button) restores the normal bar. Only
+            // one bar is ever visible.
+            if (hubKey == "google") {
+                HubBar(
+                    items = GoogleTab.entries.map { entry ->
+                        HubBarItem(entry.label, entry.icon, selected = googleTab == entry)
+                    },
+                    onSelect = { index -> googleTab = GoogleTab.entries[index] },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    hazeState = hazeState,
+                    blur = floatingBar && !isFoldable,
+                )
+            } else if (hubKey == "microsoft") {
+                HubBar(
+                    items = MsTab.entries.map { entry ->
+                        HubBarItem(entry.label, entry.icon, selected = microsoftTab == entry)
+                    },
+                    onSelect = { index -> microsoftTab = MsTab.entries[index] },
                     modifier = Modifier.align(Alignment.BottomCenter),
                     hazeState = hazeState,
                     blur = floatingBar && !isFoldable,
@@ -372,16 +427,24 @@ private fun FloatingIconBar(
     }
 }
 
+/** One labeled tab in a hub bar. */
+private data class HubBarItem(
+    val label: String,
+    val icon: ImageVector,
+    val selected: Boolean,
+)
+
 /**
- * The Google hub's bottom bar: Email / Calendar / Drive, labeled,
- * in the same detached frosted pill as the Box floating bar (real
- * Haze blur when the floating bar is on). It replaces the Box bar
- * while the Google hub is open; leaving the hub restores the Box bar.
+ * A hub's bottom bar: labeled tabs in the same detached frosted pill
+ * as the Box floating bar (real Haze blur when the floating bar is
+ * on). It replaces the Box bar while the hub is open; leaving the hub
+ * restores the Box bar. The Google hub uses it for Email / Calendar /
+ * Drive, the Microsoft hub for Email / Files.
  */
 @Composable
-private fun GoogleBar(
-    selected: GoogleTab,
-    onSelect: (GoogleTab) -> Unit,
+private fun HubBar(
+    items: List<HubBarItem>,
+    onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     hazeState: HazeState,
     blur: Boolean,
@@ -416,27 +479,26 @@ private fun GoogleBar(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        GoogleTab.entries.forEach { entry ->
-            val isSelected = selected == entry
+        items.forEachIndexed { index, item ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .clickable { onSelect(entry) }
+                    .clickable { onSelect(index) }
                     .padding(horizontal = 16.dp, vertical = 6.dp),
             ) {
                 Icon(
-                    imageVector = entry.icon,
-                    contentDescription = entry.label,
-                    tint = if (isSelected) {
+                    imageVector = item.icon,
+                    contentDescription = item.label,
+                    tint = if (item.selected) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
                 Text(
-                    text = entry.label,
+                    text = item.label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (isSelected) {
+                    color = if (item.selected) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
