@@ -50,10 +50,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
-import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.HazeBlurStyle
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeBlur
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import com.ppp65isking.box.ui.AiSettingsScreen
@@ -290,15 +289,17 @@ private fun FoldableRail(
  * Floating, icon-only bottom bar (Settings toggle, default on). A
  * detached pill with side and bottom margins and a shadow, so it reads
  * as floating above the content — and the fill is a REAL backdrop blur
- * (Haze 2.1.0): the screen content behind the bar is blurred through
- * it, with the theme's surface color and tint on top. Five icons, no
- * labels; the selected tab is the primary color.
+ * (Haze 1.7.3): the screen content behind the bar is blurred through
+ * it, over the same translucent surfaceContainer tint the fake fill
+ * used. Five icons, no labels; the selected tab is the primary color.
  *
  * The blur needs the screen content registered as a Haze source (see
  * BoxNav) and the bar as the effect, both sharing one HazeState.
- * HazeInput.Backdrop samples the window pixels drawn behind the bar
- * and falls back to the registered source where the native backdrop
- * path isn't available (everything before Android 17 QPR2).
+ *
+ * Haze 2.x would be nicer (hazeBlur + theme-aware styles), but it is
+ * compiled with Kotlin 2.4 metadata and this project is stuck on the
+ * Kotlin 2.2.10 AGP 9.1.1 bundles — see build.gradle.kts. 1.7.3 is
+ * the newest Haze the toolchain can read.
  */
 @Composable
 private fun FloatingIconBar(
@@ -314,9 +315,14 @@ private fun FloatingIconBar(
             .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
             .shadow(elevation = 12.dp, shape = pillShape)
             .clip(pillShape)
-            .hazeBlur(
-                input = HazeInput.Backdrop(hazeState),
-                style = HazeBlurStyle.Material3(),
+            .hazeEffect(
+                state = hazeState,
+                style = HazeStyle(
+                    backgroundColor = MaterialTheme.colorScheme
+                        .surfaceContainer.copy(alpha = 0.7f),
+                    blurRadius = 20.dp,
+                    noiseFactor = 0f,
+                ),
             )
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,

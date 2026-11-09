@@ -120,13 +120,18 @@ dependencies {
     // the vertical nav rail on foldables.
     implementation("androidx.window:window:1.4.0")
 
-    // Haze 2.1.0 — real backdrop blur for the floating bottom bar
-    // (replaces the fake translucent fill). haze-blur-material3
-    // provides HazeBlurStyle.Material3(), the theme-aware blur
-    // style (surface color + tint from the current theme).
-    implementation("dev.chrisbanes.haze:haze:2.1.0")
-    implementation("dev.chrisbanes.haze:haze-blur:2.1.0")
-    implementation("dev.chrisbanes.haze:haze-blur-material3:2.1.0")
+    // Haze 1.7.3 — real backdrop blur for the floating bottom bar
+    // (replaces the fake translucent fill). PINNED at 1.7.3 on
+    // purpose: Haze 2.x (2.0.0–2.1.0) is compiled with Kotlin 2.4
+    // metadata, which the bundled Kotlin 2.2.10 compiler cannot read
+    // (build 42677324517 failed on exactly that). AGP 9.1.1 bundles
+    // Kotlin 2.2.10 and applying a newer Kotlin plugin is
+    // incompatible with AGP 9.x, so 2.x is unreachable until AGP
+    // ships a newer Kotlin. 1.7.3 was compiled with Kotlin 2.3.20
+    // (metadata 2.3.0), which 2.2.10 can read. Single artifact in
+    // 1.x — no haze-blur / haze-blur-material3 split yet — and the
+    // 1.x API is hazeSource + hazeEffect(state, style).
+    implementation("dev.chrisbanes.haze:haze:1.7.3")
 
     // AI in Box, Phase 1 (see ai-in-box-research.md §9): the router
     // tries Gemini Nano first, then a downloaded LiteRT-LM model, then
