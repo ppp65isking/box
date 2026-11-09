@@ -77,14 +77,12 @@ class GitHubClient(private val okHttp: OkHttpClient) {
     }
 
     private fun parseRepo(obj: kotlinx.serialization.json.JsonObject): GitHubRepo {
-        val owner = obj["owner"]?.jsonObject
         return GitHubRepo(
             fullName = obj["full_name"]?.jsonPrimitive?.contentOrNull.orEmpty(),
             description = obj["description"]?.jsonPrimitive?.contentOrNull,
             stars = obj["stargazers_count"]?.jsonPrimitive?.intOrNull ?: 0,
             language = obj["language"]?.jsonPrimitive?.contentOrNull,
             htmlUrl = obj["html_url"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-            ownerAvatarUrl = owner?.get("avatar_url")?.jsonPrimitive?.contentOrNull,
         )
     }
 

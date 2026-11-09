@@ -67,7 +67,8 @@ class BoxApp : Application() {
     val healthConnectHelper: HealthConnectHelper by lazy { HealthConnectHelper(this) }
 
     /** OAuth sign-ins (Google / Spotify / Discord) — one store for the
-     *  app's client IDs and the signed-in users' tokens. */
+     *  signed-in users' tokens. The app's client IDs ship in the app
+     *  in OAuthConfig.kt, not in this store. */
     val oauthStore: OAuthStore by lazy { OAuthStore(this) }
 
     /** Box's own UI preferences (floating bottom bar, …). */

@@ -27,14 +27,14 @@ data class BoxNotification(
     val postTime: Long,
 )
 
-/** A public GitHub repo (unauthenticated search API). */
+/** A public GitHub repo (unauthenticated search API). No owner photos —
+ *  search results show the repo, not the person behind it. */
 data class GitHubRepo(
     val fullName: String,
     val description: String?,
     val stars: Int,
     val language: String?,
     val htmlUrl: String,
-    val ownerAvatarUrl: String?,
 )
 
 /** A public Reddit post (unauthenticated .json endpoints). */

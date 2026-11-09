@@ -6,20 +6,15 @@ import android.content.SharedPreferences
 /**
  * Small persistent store for Reddit app-only OAuth.
  *
- * Holds the "installed app" client ID Anthony pastes in (More → Reddit
- * app ID) plus the cached access token from the client-credentials grant.
- * Installed apps have no secret — the client ID alone is the credential,
- * and it is safe to store on-device. No Reddit account data lives here.
+ * Holds only the cached access token from the client-credentials grant.
+ * The "installed app" client ID ships in the app in [OAuthConfig] —
+ * nobody pastes it anywhere. Installed apps have no secret — the client
+ * ID alone is the credential, and it is safe to ship on-device. No
+ * Reddit account data lives here.
  */
 class RedditAuthStore(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("box_reddit_auth", Context.MODE_PRIVATE)
-
-    var clientId: String?
-        get() = prefs.getString(KEY_CLIENT_ID, null)
-        set(value) {
-            prefs.edit().putString(KEY_CLIENT_ID, value).apply()
-        }
 
     var accessToken: String?
         get() = prefs.getString(KEY_ACCESS_TOKEN, null)
@@ -34,7 +29,6 @@ class RedditAuthStore(context: Context) {
         }
 
     companion object {
-        private const val KEY_CLIENT_ID = "client_id"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_TOKEN_EXPIRES_AT = "token_expires_at"
     }

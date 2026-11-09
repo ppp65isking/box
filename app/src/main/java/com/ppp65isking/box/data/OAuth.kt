@@ -21,10 +21,10 @@ import java.util.Base64
  *
  * All three use Authorization Code + PKCE, so no client secret is needed
  * or stored anywhere. The client ID for each is Box's own developer
- * client, registered once by Anthony (see SETUP.md) and entered in
- * More → Setup. A user who taps Connect signs in with THEIR OWN Google /
- * Spotify / Discord account — Box then stores that user's token, never
- * Anthony's and never the developer's.
+ * client, registered once by Anthony (see SETUP.md) and shipped in the
+ * app in [OAuthConfig]. A user who taps Connect signs in with THEIR OWN
+ * Google / Spotify / Discord account — Box then stores that user's token,
+ * never Anthony's and never the developer's.
  *
  * Discord honesty note: the `messages.read` scope is NOT requested. Per
  * Discord's own docs it exists for local RPC server access only — a user
@@ -119,7 +119,8 @@ private val json = Json { ignoreUnknownKeys = true }
 
 /** Build the provider sign-in URL and remember the PKCE verifier + state
  *  so the redirect can be checked when it comes back. Returns null when
- *  the app's client ID for this service has not been entered yet. */
+ *  the app's client ID for this service has not been added to
+ *  [OAuthConfig] yet. */
 fun buildAuthUrl(service: OAuthService, store: OAuthStore): String? {
     val clientId = store.clientId(service) ?: return null
     val verifier = Pkce.newVerifier()
@@ -153,7 +154,7 @@ fun buildAuthUrl(service: OAuthService, store: OAuthStore): String? {
 }
 
 /** Open the provider sign-in page in a Custom Tab. Returns false when
- *  the service is not set up yet (no client ID in the store). */
+ *  the service is not set up yet (no client ID in [OAuthConfig]). */
 fun launchOAuth(context: Context, service: OAuthService, store: OAuthStore): Boolean {
     val url = buildAuthUrl(service, store) ?: return false
     val tabsIntent = CustomTabsIntent.Builder()

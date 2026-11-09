@@ -6,14 +6,14 @@ import android.content.SharedPreferences
 /**
  * One persistent store for all OAuth sign-ins.
  *
- * Holds, per service:
- * - the APP's OAuth client ID (Box's own developer client, registered once
- *   by Anthony — see SETUP.md). End users never see or enter this; they
- *   just tap Connect and sign in with their own account.
- * - the signed-in USER's access token, refresh token, expiry, and a short
- *   account label ("Signed in as …").
- * - the in-flight PKCE verifier + state for the login that is open in the
- *   browser right now.
+ * Holds, per service, the signed-in USER's access token, refresh
+ * token, expiry, and a short account label ("Signed in as …"), plus
+ * the in-flight PKCE verifier + state for the login that is open in
+ * the browser right now.
+ *
+ * The app's own client IDs are NOT stored here — they ship in the app
+ * in [OAuthConfig] (see SETUP.md). End users never see or enter them;
+ * they just tap Connect and sign in with their own account.
  *
  * Tokens are stored in private SharedPreferences and are never logged.
  * No client secrets live here — all three services use PKCE, so a public
@@ -23,14 +23,9 @@ class OAuthStore(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("box_oauth", Context.MODE_PRIVATE)
 
+    /** The app's client ID for this service, from [OAuthConfig]. */
     fun clientId(service: OAuthService): String? =
-        prefs.getString("${service.key}_client_id", null)?.takeIf { it.isNotBlank() }
-
-    fun setClientId(service: OAuthService, value: String?) {
-        prefs.edit().putString("${service.key}_client_id", value?.trim().orEmpty()).apply()
-        // A new client ID invalidates any tokens issued under the old one.
-        clearTokens(service)
-    }
+        service.configuredClientId()
 
     fun accessToken(service: OAuthService): String? =
         prefs.getString("${service.key}_access_token", null)

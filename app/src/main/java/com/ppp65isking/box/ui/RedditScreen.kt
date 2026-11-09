@@ -44,6 +44,7 @@ import coil.compose.AsyncImage
 import com.ppp65isking.box.BoxApp
 import com.ppp65isking.box.data.RedditClient
 import com.ppp65isking.box.data.openUrl
+import com.ppp65isking.box.data.redditConfiguredClientId
 import com.ppp65isking.box.model.RedditPost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -94,6 +95,17 @@ fun RedditScreen() {
 
     Column(modifier = Modifier.fillMaxSize()) {
         BoxHeader("Reddit")
+        // Search runs on Box's own Reddit app ID (shipped in the app).
+        // Browsing r/popular and subreddits works without it; search
+        // says plainly that it isn't available yet until the ID is in.
+        if (redditConfiguredClientId() == null) {
+            Text(
+                text = "Reddit search isn't available yet. Browsing still works.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()

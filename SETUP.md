@@ -5,20 +5,25 @@ This page is for **Anthony-as-developer**, not for people using Box.
 ## The one idea to hold onto
 
 Each service needs **one OAuth client for the whole app**, registered once
-by the developer. Those client IDs live in the app under
-**More → Setup → Connected accounts**. An end user never creates a dev
-account, never sees a client ID, and never pastes anything: they tap
-**Connect** on the service's screen and sign in with **their own**
-Google / Spotify / Discord account. Box then stores *that user's*
-token on their own phone.
+by the developer. The client IDs ship **in the app**, in
+`app/src/main/java/com/ppp65isking/box/data/OAuthConfig.kt` — Anthony
+creates the dev app once, gives the client ID to Cosmo once, and it
+lands there. An end user never creates a dev account, never sees a
+client ID, and never pastes anything: they tap **Connect** on the
+service's screen and sign in with **their own** Google / Spotify /
+Discord account. Box then stores *that user's* token on their own phone.
 
 Same principle as the Reddit integration: its client ID is Box's app ID,
 not per-user. No client secrets are involved anywhere — all three
-services use PKCE, so the client ID alone is the credential.
+services use Authorization Code + PKCE, so the client ID alone is the
+credential.
 
-**Do not put any of these IDs in the code or in git.** They are typed
-into the app's Setup screen, which stores them in private
-SharedPreferences on the device.
+**Why embedding the IDs is safe:** an OAuth client ID is a public
+identifier, not a secret — it shows up in the sign-in URL of every app
+that uses one. The secret part of OAuth (the client secret) doesn't
+exist here at all, because PKCE replaces it. Nothing sensitive ships
+in the app; the IDs just tell Google / Spotify / Discord / Reddit
+which Box app is asking.
 
 ---
 
@@ -55,8 +60,8 @@ Steps:
 5. In the client, add the authorized redirect URI **exactly**:
    `box://oauth/google`
 6. Copy the **Client ID** (the long `….apps.googleusercontent.com`
-   string — not the secret) and paste it in Box: **More → Setup →
-   Connected accounts → Google → Save**.
+   string — not the secret) and **give it to Cosmo once**. It goes in
+   `OAuthConfig.kt` (`GOOGLE_CLIENT_ID`) and ships with the app.
 7. In Box, open **More → Google → Connect Google** and sign in.
 
 Photos note: Google restricted the Photos Library API in 2025, so the
@@ -81,10 +86,10 @@ Steps:
 2. In the app settings, add the redirect URI **exactly**:
    `box://oauth/spotify`
    (Spotify matches it character-for-character, including case.)
-3. Copy the **Client ID** from the dashboard and paste it in Box:
-   **More → Setup → Connected accounts → Spotify → Save**.
-   No secret is needed — Box uses Authorization Code + PKCE, which is
-   the flow Spotify requires for mobile apps.
+3. Copy the **Client ID** from the dashboard and **give it to Cosmo
+   once**. It goes in `OAuthConfig.kt` (`SPOTIFY_CLIENT_ID`) and ships
+   with the app. No secret is needed — Box uses Authorization Code +
+   PKCE, which is the flow Spotify requires for mobile apps.
 4. In Box, open **More → Spotify → Connect Spotify** and sign in.
 
 Two honest limits:
@@ -112,9 +117,9 @@ Steps:
 2. **OAuth2 → Redirects**: add **exactly** `box://oauth/discord`,
    then Save Changes.
 3. **General Information**: copy the **Application ID** — that is the
-   client ID. Paste it in Box: **More → Setup → Connected accounts →
-   Discord → Save**. (The Client Secret on that page is never needed:
-   Box uses PKCE.)
+   client ID. **Give it to Cosmo once.** It goes in `OAuthConfig.kt`
+   (`DISCORD_CLIENT_ID`) and ships with the app. (The Client Secret on
+   that page is never needed: Box uses PKCE.)
 4. In Box, open **More → Discord → Connect Discord** and sign in.
 
 **The real limit — read this before expecting messages to load:**
@@ -128,31 +133,54 @@ empty list and pretending there are no messages. Servers and channels
 work fine. Sending messages is impossible with a user token, so Box
 doesn't try.
 
+## 4. Reddit search (app-only OAuth, no user sign-in)
+
+Reddit blocks anonymous search, so search goes through an "installed
+app" client ID — free, no user login, no secret.
+
+1. Go to [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps)
+   → **create another app…** → type **installed app**, name it Box.
+   No redirect URI needed.
+2. Copy the **client ID** (the short string under the app name) and
+   **give it to Cosmo once**. It goes in `OAuthConfig.kt`
+   (`REDDIT_CLIENT_ID`) and ships with the app.
+3. Reddit search starts working; browsing r/popular and subreddits
+   never needed the ID.
+
 ---
 
 ## Testing it end to end
 
-1. Paste all three client IDs in More → Setup. Each row should read
-   "Status: configured ✓".
+1. Check `OAuthConfig.kt` has the client IDs filled in — blank means
+   that service's screen says "sign-in isn't available yet".
 2. Open each service under More and tap Connect. You should land in a
    Custom Tab (browser sheet inside Box), sign in with your own
    account, and come straight back into Box signed in.
 3. Sign out from the top of any service screen to test again.
-4. If a service's screen says "isn't set up yet", its client ID is
-   missing or blank — re-check the paste.
 
 ## Where things live (for the next person touching this code)
 
+- `app/src/main/java/com/ppp65isking/box/data/OAuthConfig.kt` — the
+  app's client IDs, shipped in the app (blank until the dev apps
+  exist).
 - `app/src/main/java/com/ppp65isking/box/data/OAuth.kt` — service
   definitions, PKCE, auth-URL building, code exchange, token refresh.
-- `app/src/main/java/com/ppp65isking/box/data/OAuthStore.kt` — client
-  IDs + user tokens in SharedPreferences.
+- `app/src/main/java/com/ppp65isking/box/data/OAuthStore.kt` — user
+  tokens in SharedPreferences.
 - `app/src/main/java/com/ppp65isking/box/data/GoogleClient.kt`,
   `SpotifyClient.kt`, `DiscordClient.kt` — the API calls (read-only,
   except Spotify play/pause).
+- `app/src/main/java/com/ppp65isking/box/data/RedditClient.kt` —
+  Reddit browsing + app-only OAuth search.
 - `app/src/main/java/com/ppp65isking/box/ui/GoogleScreen.kt`,
-  `SpotifyScreen.kt`, `DiscordScreen.kt`, `SetupScreen.kt` — the screens.
+  `SpotifyScreen.kt`, `DiscordScreen.kt`, `RedditScreen.kt` — the
+  screens. Each one owns its own Connect card at the top; nothing
+  about accounts lives in Settings.
+- `app/src/main/java/com/ppp65isking/box/ui/SetupScreen.kt` —
+  Settings (floating bottom bar toggle only).
 - `BoxApp.handleOAuthRedirect()` — the `box://oauth/<service>` return
   path (intent-filter in `AndroidManifest.xml`).
 - `app/src/main/java/com/ppp65isking/box/data/UiPrefs.kt` — UI
-  preferences, including the floating bottom bar toggle.
+  preferences, including the floating bottom bar toggle (default on).
+- `app/src/main/java/com/ppp65isking/box/MainActivity.kt` — the
+  floating icon-only bottom bar (Haze blur over scrolling content).

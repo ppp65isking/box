@@ -18,8 +18,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
  *  Search is different: reddit.com/search.json 403s anonymous requests,
  *  so search goes through app-only OAuth (oauth.reddit.com) with an
  *  "installed app" client ID — free, no user login, no secret.
- *  The client ID lives in [RedditAuthStore]; until Anthony pastes one in
- *  (More → Reddit app ID), search explains the 2-minute setup instead of
+ *  The client ID ships in the app in [OAuthConfig]; until one is added
+ *  there, search says plainly that it isn't available yet instead of
  *  showing a bare 403. Callers must run this on Dispatchers.IO. */
 class RedditClient(
     private val okHttp: OkHttpClient,
@@ -39,11 +39,8 @@ class RedditClient(
         fetch("https://www.reddit.com/r/${encode(name)}/.json?limit=25")
 
     fun search(query: String): Result {
-        val clientId = authStore.clientId?.takeIf { it.isNotBlank() }
-            ?: return Result.Error(
-                "Reddit search needs a free app ID first — create an \"installed app\" " +
-                    "at reddit.com/prefs/apps, then paste its client ID in More → Setup.",
-            )
+        val clientId = redditConfiguredClientId()
+            ?: return Result.Error("Reddit search isn't available yet.")
         val token = accessToken(clientId)
             ?: return Result.Error("Reddit wouldn't hand out a search token — try again in a bit.")
         val request = Request.Builder()

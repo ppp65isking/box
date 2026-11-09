@@ -22,10 +22,9 @@ import com.ppp65isking.box.data.OAuthService
  * The sign-in header shared by the Google / Spotify / Discord screens.
  *
  * Three states, all honest:
- * - Not configured: the app's client ID for this service has not been
- *   entered yet (developer setup, More → Setup). No Connect button —
- *   there is nothing to connect with yet — and no client-ID field here:
- *   users never enter developer credentials.
+ * - Not available yet: the app's client ID for this service has not
+ *   been added to the app. No Connect button — there is nothing to
+ *   connect with yet.
  * - Signed out: a Connect button. Tapping it signs the USER in with
  *   their own account, in a Custom Tab.
  * - Signed in: the account label plus a Sign out button.
@@ -43,17 +42,9 @@ fun OAuthStatusCard(
         Column(modifier = Modifier.padding(16.dp)) {
             if (!configured) {
                 Text(
-                    text = "Box's ${service.label} sign-in isn't set up yet.",
+                    text = "${service.label} sign-in isn't available yet.",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "The app's ${service.label} client ID has to be added " +
-                        "once by the developer, in More → Setup. Nothing to do " +
-                        "here until then.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else if (!signedIn) {
                 Text(
@@ -63,8 +54,7 @@ fun OAuthStatusCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Sign in with your own ${service.label} account. Box " +
-                        "only reads — it never posts, sends, or changes anything.",
+                    text = "Sign in with your own ${service.label} account.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
