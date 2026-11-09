@@ -209,7 +209,8 @@ fun MusicScreen() {
         if (playerState.videoId.isNotEmpty()) {
             NowPlayingBar(
                 state = playerState,
-                onTogglePlay = { app.playerManager.togglePlayPause() },
+                playerManager = app.playerManager,
+                onOpenMusicTab = {},
             )
         }
     }

@@ -5,7 +5,9 @@ plugins {
 
 android {
     namespace = "com.ppp65isking.box"
-    compileSdk = 36
+    // compileSdk 37: material3 1.5.0-beta02 (and its siblings) require it.
+    // targetSdk stays 36 (Play floor); minSdk stays 26.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.ppp65isking.box"
