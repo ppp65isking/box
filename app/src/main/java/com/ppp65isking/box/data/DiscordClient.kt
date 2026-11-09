@@ -129,9 +129,13 @@ class DiscordClient(private val okHttp: OkHttpClient) {
      * Newest messages in a channel — best effort (see the class doc).
      * A 401/403 from Discord comes back as [Result.Restricted], never as
      * an empty list, so the screen can say why instead of faking it.
+     * Note the 401: Discord refuses channel-message reads for a user
+     * sign-in with a 401, not a 403 — that is the documented messages
+     * limit, NOT a dead token, so it must not surface as
+     * [Result.Unauthorized] ("sign-in is stale").
      */
-    fun messages(token: String, channelId: String): Result<List<DiscordMessage>> =
-        runGet(
+    fun messages(token: String, channelId: String): Result<List<DiscordMessage>> {
+        val result = runGet(
             "https://discord.com/api/v10/channels/$channelId/messages?limit=25",
             token,
         ) { element ->
@@ -154,4 +158,10 @@ class DiscordClient(private val okHttp: OkHttpClient) {
                 }.getOrNull()
             }
         }
+        return if (result is Result.Unauthorized) {
+            Result.Restricted("Discord refused this for a user sign-in.")
+        } else {
+            result
+        }
+    }
 }
