@@ -1,7 +1,7 @@
 package com.ppp65isking.box.data.ai
 
-import com.google.mlkit.genai.prompt.DownloadStatus
-import com.google.mlkit.genai.prompt.FeatureStatus
+import com.google.mlkit.genai.common.DownloadStatus
+import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.prompt.Generation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
