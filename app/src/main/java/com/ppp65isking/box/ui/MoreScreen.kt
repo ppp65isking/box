@@ -31,30 +31,6 @@ fun MoreScreen(onNavigate: (String) -> Unit) {
                 .verticalScroll(rememberScrollState()),
         ) {
             Text(
-                text = "Browse",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
-            MoreRow(title = "GitHub", subtitle = "Search public repos") {
-                onNavigate("github")
-            }
-            MoreRow(title = "Reddit", subtitle = "Browse r/popular and subreddits") {
-                onNavigate("reddit")
-            }
-            MoreRow(title = "Messages", subtitle = "Your SMS conversations") {
-                onNavigate("sms")
-            }
-            MoreRow(title = "Google", subtitle = "Mail, Calendar, Drive, Photos") {
-                onNavigate("google")
-            }
-            MoreRow(title = "Spotify", subtitle = "Your library and playback") {
-                onNavigate("spotify")
-            }
-            MoreRow(title = "Discord", subtitle = "Servers and channels") {
-                onNavigate("discord")
-            }
-            Text(
                 text = "Settings",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
