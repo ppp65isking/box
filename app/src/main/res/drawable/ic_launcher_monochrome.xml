@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Single-color cube for themed (monochrome) icons; the system tints it. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,20 L92,41 L54,62 L16,41 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16,41 L54,62 L54,88 L16,67 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M92,41 L54,62 L54,88 L92,67 Z" />
+</vector>

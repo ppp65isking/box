@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Isometric cube: the Box. Top face orange, left face green,
+         right face blue. Centered, ~70% of the viewport, inside the
+         safe zone (the launcher applies the rounded-square mask). -->
+    <!-- Top face: orange -->
+    <path
+        android:fillColor="#FFF97316"
+        android:pathData="M54,20 L92,41 L54,62 L16,41 Z" />
+    <!-- Left face: green -->
+    <path
+        android:fillColor="#FF22C55E"
+        android:pathData="M16,41 L54,62 L54,88 L16,67 Z" />
+    <!-- Right face: blue -->
+    <path
+        android:fillColor="#FF2563EB"
+        android:pathData="M92,41 L54,62 L54,88 L92,67 Z" />
+</vector>
