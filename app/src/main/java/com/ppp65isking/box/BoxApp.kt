@@ -97,8 +97,19 @@ class BoxApp : Application() {
         _oauthVersion.value = System.currentTimeMillis()
     }
 
+    /** The last sign-in failure, in plain words, or null. Shown on the
+     *  service's screen so a failed sign-in never fails silently —
+     *  it carries the provider's own reason when there is one. */
+    private val _lastOAuthError = MutableStateFlow<String?>(null)
+    val lastOAuthError: StateFlow<String?> = _lastOAuthError.asStateFlow()
+
+    fun clearOAuthError() {
+        _lastOAuthError.value = null
+    }
+
     fun signOut(service: OAuthService) {
         oauthStore.clearTokens(service)
+        clearOAuthError()
         bumpOAuthVersion()
     }
 
@@ -133,6 +144,7 @@ class BoxApp : Application() {
         val code = uri.getQueryParameter("code")
         val state = uri.getQueryParameter("state")
         val error = uri.getQueryParameter("error")
+        clearOAuthError()
         oauthScope.launch {
             finishLogin(service, code, state, error)
         }
@@ -150,6 +162,7 @@ class BoxApp : Application() {
      */
     suspend fun startGoogleLogin(context: Context): Boolean {
         if (oauthStore.clientId(OAuthService.GOOGLE) == null) return false
+        clearOAuthError()
         loopbackServer?.stop()
         val server = LoopbackOAuthServer { code, state, error ->
             oauthScope.launch {
@@ -161,9 +174,13 @@ class BoxApp : Application() {
         oauthStore.pendingRedirectUri = redirect
         val url = buildAuthUrl(OAuthService.GOOGLE, oauthStore) ?: return false
         oauthScope.launch(Dispatchers.IO) {
-            if (!server.serve()) {
-                // Nobody finished the login (closed tab / timed out).
+            if (!server.serve() && loopbackServer === server) {
+                // Nobody finished the login (closed tab / timed out) —
+                // and this server is still the current one, so clearing
+                // the pending login cannot wipe a newer retry's state.
                 oauthStore.clearPendingLogin()
+                _lastOAuthError.value = "The sign-in timed out — " +
+                    "tap Connect and try again."
                 bumpOAuthVersion()
             }
             if (loopbackServer === server) loopbackServer = null
@@ -178,30 +195,46 @@ class BoxApp : Application() {
 
     /** Shared tail of every sign-in: validate state, exchange the code
      *  for tokens, fetch the account label, bump [oauthVersion].
-     *  Runs on [oauthScope] — never on the main thread. */
+     *  Failures set [lastOAuthError] with the plain reason instead of
+     *  failing silently. Runs on [oauthScope] — never on the main
+     *  thread. */
     private suspend fun finishLogin(
         service: OAuthService,
         code: String?,
         state: String?,
         error: String?,
     ) {
+        if (state != oauthStore.oauthState) {
+            // Stale result — e.g. an older login's tab finishing after
+            // a retry started a newer login. Leave the newer login's
+            // pending state alone; only say it didn't match.
+            _lastOAuthError.value = "The sign-in reply didn't match " +
+                "Box's request — tap Connect and try again."
+            bumpOAuthVersion()
+            return
+        }
         if (error != null || code == null) {
             // The user denied the sign-in, or the provider errored.
             oauthStore.clearPendingLogin()
+            _lastOAuthError.value = if (error != null) {
+                "${service.label} said the sign-in failed ($error)."
+            } else {
+                "The sign-in was cancelled."
+            }
             bumpOAuthVersion()
             return
         }
-        if (state == null || state != oauthStore.oauthState) {
-            oauthStore.clearPendingLogin()
-            bumpOAuthVersion()
-            return
-        }
-        val tokens = exchangeCode(service, code, oauthStore, okHttp)
+        val exchange = exchangeCode(service, code, oauthStore, okHttp)
         oauthStore.clearPendingLogin()
+        val tokens = exchange.tokens
         if (tokens == null) {
+            _lastOAuthError.value = "${service.label} couldn't exchange " +
+                "the sign-in code." +
+                (exchange.error?.let { " ($it)" } ?: "")
             bumpOAuthVersion()
             return
         }
+        _lastOAuthError.value = null
         oauthStore.setTokens(
             service = service,
             accessToken = tokens.accessToken,

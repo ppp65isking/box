@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import com.ppp65isking.box.ui.components.BoxHeader
+import com.ppp65isking.box.ui.components.OAuthErrorCard
 import com.ppp65isking.box.ui.components.OAuthStatusCard
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,6 +82,7 @@ fun SpotifyScreen() {
     val configured = app.oauthStore.isConfigured(OAuthService.SPOTIFY)
     val signedIn = app.oauthStore.isSignedIn(OAuthService.SPOTIFY)
     val accountLabel = app.oauthStore.accountLabel(OAuthService.SPOTIFY)
+    val lastError by app.lastOAuthError.collectAsState()
 
     var state by remember { mutableStateOf<SpotifyState>(SpotifyState.Idle) }
     var playbackMessage by remember { mutableStateOf<String?>(null) }
@@ -106,7 +108,18 @@ fun SpotifyScreen() {
                     return@launch
                 }
                 is SpotifyClient.Result.Error -> {
-                    state = SpotifyState.Error("Couldn't load profile: ${r.message}")
+                    state = SpotifyState.Error(
+                        if (r.message.contains("403")) {
+                            // Dev-mode Spotify apps only work for accounts
+                            // added under Users and Access in the dashboard.
+                            "Spotify said this account can't use the app " +
+                                "yet (403). Add your Spotify account under " +
+                                "Users and Access in the Spotify dashboard, " +
+                                "then reconnect."
+                        } else {
+                            "Couldn't load profile: ${r.message}"
+                        },
+                    )
                     return@launch
                 }
                 is SpotifyClient.Result.PlaybackUnavailable -> null
@@ -171,9 +184,19 @@ fun SpotifyScreen() {
                 configured = configured,
                 signedIn = signedIn,
                 accountLabel = accountLabel,
-                onConnect = { launchOAuth(context, OAuthService.SPOTIFY, app.oauthStore) },
+                onConnect = {
+                    app.clearOAuthError()
+                    launchOAuth(context, OAuthService.SPOTIFY, app.oauthStore)
+                },
                 onSignOut = { app.signOut(OAuthService.SPOTIFY) },
             )
+            lastError?.let { message ->
+                Spacer(modifier = Modifier.height(8.dp))
+                OAuthErrorCard(
+                    message = message,
+                    onDismiss = { app.clearOAuthError() },
+                )
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
         if (!signedIn) {

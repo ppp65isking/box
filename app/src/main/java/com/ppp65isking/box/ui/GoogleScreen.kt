@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import com.ppp65isking.box.ui.components.BoxHeader
+import com.ppp65isking.box.ui.components.OAuthErrorCard
 import com.ppp65isking.box.ui.components.OAuthStatusCard
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -86,6 +87,7 @@ fun GoogleScreen() {
     val configured = app.oauthStore.isConfigured(OAuthService.GOOGLE)
     val signedIn = app.oauthStore.isSignedIn(OAuthService.GOOGLE)
     val accountLabel = app.oauthStore.accountLabel(OAuthService.GOOGLE)
+    val lastError by app.lastOAuthError.collectAsState()
 
     var tab by remember { mutableStateOf(GoogleTab.MAIL) }
     var state by remember { mutableStateOf<GoogleState>(GoogleState.Idle) }
@@ -177,6 +179,13 @@ fun GoogleScreen() {
                 onConnect = { scope.launch { app.startGoogleLogin(context) } },
                 onSignOut = { app.signOut(OAuthService.GOOGLE) },
             )
+            lastError?.let { message ->
+                Spacer(modifier = Modifier.height(8.dp))
+                OAuthErrorCard(
+                    message = message,
+                    onDismiss = { app.clearOAuthError() },
+                )
+            }
             if (signedIn) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

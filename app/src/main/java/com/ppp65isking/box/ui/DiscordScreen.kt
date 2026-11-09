@@ -19,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import com.ppp65isking.box.ui.components.BoxHeader
+import com.ppp65isking.box.ui.components.OAuthErrorCard
 import com.ppp65isking.box.ui.components.OAuthStatusCard
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -75,6 +76,7 @@ fun DiscordScreen() {
     val configured = app.oauthStore.isConfigured(OAuthService.DISCORD)
     val signedIn = app.oauthStore.isSignedIn(OAuthService.DISCORD)
     val accountLabel = app.oauthStore.accountLabel(OAuthService.DISCORD)
+    val lastError by app.lastOAuthError.collectAsState()
 
     var guildsState by remember {
         mutableStateOf<DiscordListState<List<DiscordGuild>>>(DiscordListState.Loading)
@@ -174,9 +176,19 @@ fun DiscordScreen() {
                 configured = configured,
                 signedIn = signedIn,
                 accountLabel = accountLabel,
-                onConnect = { launchOAuth(context, OAuthService.DISCORD, app.oauthStore) },
+                onConnect = {
+                    app.clearOAuthError()
+                    launchOAuth(context, OAuthService.DISCORD, app.oauthStore)
+                },
                 onSignOut = { app.signOut(OAuthService.DISCORD) },
             )
+            lastError?.let { message ->
+                Spacer(modifier = Modifier.height(8.dp))
+                OAuthErrorCard(
+                    message = message,
+                    onDismiss = { app.clearOAuthError() },
+                )
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
         if (!signedIn) {

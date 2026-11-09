@@ -182,17 +182,27 @@ data class TokenResponse(
     val expiresInSeconds: Long,
 )
 
+data class ExchangeResult(
+    val tokens: TokenResponse?,
+    /** Plain provider reason when [tokens] is null — e.g. invalid_grant
+     *  or redirect_uri_mismatch. No codes or tokens, just the error. */
+    val error: String?,
+)
+
 /** Exchange an authorization code for tokens (PKCE — no client secret).
- *  Returns null when the provider refused the code. Callers must run
- *  this on Dispatchers.IO. */
+ *  The provider's refusal reason comes back in [ExchangeResult.error]
+ *  instead of failing silently, so the sign-in screen can say what
+ *  actually went wrong. Callers must run this on Dispatchers.IO. */
 fun exchangeCode(
     service: OAuthService,
     code: String,
     store: OAuthStore,
     okHttp: OkHttpClient,
-): TokenResponse? {
-    val clientId = store.clientId(service) ?: return null
-    val verifier = store.pkceVerifier ?: return null
+): ExchangeResult {
+    val clientId = store.clientId(service)
+        ?: return ExchangeResult(null, "no client ID for this service")
+    val verifier = store.pkceVerifier
+        ?: return ExchangeResult(null, "the sign-in session was lost")
     val body = FormBody.Builder()
         .add("grant_type", "authorization_code")
         .add("code", code)
@@ -206,20 +216,42 @@ fun exchangeCode(
         .build()
     return runCatching {
         okHttp.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return null
-            val root = json.parseToJsonElement(
-                response.body?.string().orEmpty(),
-            ).jsonObject
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                return ExchangeResult(null, providerError(raw))
+            }
+            val root = json.parseToJsonElement(raw).jsonObject
             val access = root["access_token"]?.jsonPrimitive?.contentOrNull
-                ?: return null
-            TokenResponse(
-                accessToken = access,
-                refreshToken = root["refresh_token"]?.jsonPrimitive?.contentOrNull,
-                expiresInSeconds = root["expires_in"]?.jsonPrimitive?.intOrNull
-                    ?.toLong() ?: 3600L,
+                ?: return ExchangeResult(
+                    null,
+                    "the provider answered without an access token",
+                )
+            ExchangeResult(
+                TokenResponse(
+                    accessToken = access,
+                    refreshToken = root["refresh_token"]?.jsonPrimitive?.contentOrNull,
+                    expiresInSeconds = root["expires_in"]?.jsonPrimitive?.intOrNull
+                        ?.toLong() ?: 3600L,
+                ),
+                null,
             )
         }
+    }.getOrElse { e ->
+        ExchangeResult(null, e.message ?: "network error")
+    }
+}
+
+/** Pull the short "error" / "error_description" out of a provider
+ *  error body, e.g. invalid_grant. Falls back to the raw body,
+ *  truncated — it never contains codes or tokens. */
+private fun providerError(raw: String): String {
+    val parsed = runCatching {
+        json.parseToJsonElement(raw).jsonObject
     }.getOrNull()
+    val code = parsed?.get("error")?.jsonPrimitive?.contentOrNull
+    val detail = parsed?.get("error_description")?.jsonPrimitive?.contentOrNull
+    val combined = listOfNotNull(code, detail).joinToString(": ")
+    return combined.ifEmpty { raw.take(200) }.ifEmpty { "provider refused" }
 }
 
 /** Trade a refresh token for a fresh access token. Returns null when the
