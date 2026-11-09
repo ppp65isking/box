@@ -1,23 +1,30 @@
 package com.ppp65isking.box.ui
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,8 +46,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.ppp65isking.box.BoxApp
+import com.ppp65isking.box.data.ai.AiTask
+import com.ppp65isking.box.data.ai.ChatMessage
+import com.ppp65isking.box.data.ai.DetectedEntity
+import com.ppp65isking.box.data.ai.extractEntities
+import com.ppp65isking.box.data.ai.parseReplies
 import com.ppp65isking.box.model.SmsConversation
 import com.ppp65isking.box.model.SmsMessage
+import com.ppp65isking.box.ui.components.EntityChips
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,7 +77,13 @@ private fun hasSmsPermission(context: android.content.Context): Boolean =
     ) == PackageManager.PERMISSION_GRANTED
 
 /** SMS, read-only v1: conversations + messages. No sending.
- *  Tap a conversation to open the thread. */
+ *  Tap a conversation to open the thread.
+ *
+ *  AI in the thread: "Suggest replies" drafts short replies through
+ *  the router (Nano → on-device model → cloud → Smart Reply), and
+ *  phone numbers / links / emails in the latest message become
+ *  tappable chips. Tapping a reply copies it — SMS is read-only in
+ *  Box, so the reply is pasted in the SMS app. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SmsScreen() {
@@ -74,6 +93,9 @@ fun SmsScreen() {
 
     var granted by remember { mutableStateOf(hasSmsPermission(context)) }
     var state by remember { mutableStateOf<SmsState>(SmsState.Loading) }
+    var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var suggesting by remember { mutableStateOf(false) }
+    var threadEntities by remember { mutableStateOf<List<DetectedEntity>>(emptyList()) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -83,6 +105,8 @@ fun SmsScreen() {
 
     suspend fun loadConversations() {
         state = SmsState.Loading
+        suggestions = emptyList()
+        threadEntities = emptyList()
         state = withContext(Dispatchers.IO) {
             SmsState.Conversations(app.smsRepository.conversations())
         }
@@ -90,11 +114,55 @@ fun SmsScreen() {
 
     suspend fun loadThread(conversation: SmsConversation) {
         state = SmsState.Loading
+        suggestions = emptyList()
+        threadEntities = emptyList()
         state = withContext(Dispatchers.IO) {
             SmsState.Thread(
                 conversation,
                 app.smsRepository.messages(conversation.threadId),
             )
+        }
+    }
+
+    fun copyReply(reply: String) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+            as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("reply", reply))
+        Toast.makeText(
+            context,
+            "Copied — paste it in your SMS app",
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
+
+    fun suggestReplies(messages: List<SmsMessage>) {
+        if (suggesting) return
+        suggesting = true
+        scope.launch {
+            val result = withContext(Dispatchers.Default) {
+                app.aiRouter.complete(
+                    AiTask.ReplyDraft(
+                        messages.takeLast(10).map {
+                            ChatMessage(it.body, it.isOutgoing)
+                        },
+                    ),
+                )
+            }
+            suggestions = parseReplies(result.text)
+            suggesting = false
+        }
+    }
+
+    // Entities in the latest incoming message of the open thread.
+    val threadMessages = (state as? SmsState.Thread)?.messages
+    LaunchedEffect(threadMessages) {
+        val latest = threadMessages?.lastOrNull { !it.isOutgoing }
+        threadEntities = if (latest != null) {
+            withContext(Dispatchers.Default) {
+                extractEntities(context, latest.body)
+            }
+        } else {
+            emptyList()
         }
     }
 
@@ -186,6 +254,58 @@ fun SmsScreen() {
                         items(current.messages, key = { it.id }) { message ->
                             MessageBubble(message = message)
                         }
+                    }
+                    if (threadEntities.isNotEmpty()) {
+                        EntityChips(
+                            threadEntities,
+                            modifier = Modifier.padding(
+                                horizontal = 16.dp,
+                                vertical = 8.dp,
+                            ),
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Button(
+                            onClick = { suggestReplies(current.messages) },
+                            enabled = !suggesting,
+                        ) {
+                            Text("Suggest replies")
+                        }
+                        if (suggesting) {
+                            Spacer(modifier = Modifier.width(12.dp))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                    }
+                    if (suggestions.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            suggestions.forEach { reply ->
+                                AssistChip(
+                                    onClick = { copyReply(reply) },
+                                    label = { Text(reply) },
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Tap a reply to copy it — SMS is read-only " +
+                                "in Box, so paste it in your SMS app.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(
+                                horizontal = 16.dp,
+                                vertical = 8.dp,
+                            ),
+                        )
                     }
                     Text(
                         text = "Read-only in v1 — sending comes later.",

@@ -42,6 +42,12 @@ fun MoreScreen(onNavigate: (String) -> Unit) {
             ) {
                 onNavigate("setup")
             }
+            MoreRow(
+                title = "AI model",
+                subtitle = "Multiple free models, automatic fallback",
+            ) {
+                onNavigate("ai")
+            }
             Text(
                 text = "Coming soon",
                 style = MaterialTheme.typography.titleMedium,

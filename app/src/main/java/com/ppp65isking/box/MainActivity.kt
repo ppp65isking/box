@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
+import com.ppp65isking.box.ui.AiSettingsScreen
 import com.ppp65isking.box.ui.DealsScreen
 import com.ppp65isking.box.ui.DiscordScreen
 import com.ppp65isking.box.ui.GitHubScreen
@@ -182,6 +183,7 @@ private fun BoxNav() {
                     "spotify" -> SpotifyScreen()
                     "discord" -> DiscordScreen()
                     "steam" -> SteamScreen()
+                    "ai" -> AiSettingsScreen()
                     "setup" -> SetupScreen()
                     else -> when (destination) {
                         Destination.HOME -> HomeScreen(onOpenHub = { secondary = it })

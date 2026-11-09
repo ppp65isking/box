@@ -113,4 +113,30 @@ dependencies {
     // Jetpack WindowManager — foldable detection (FoldingFeature) for
     // the vertical nav rail on foldables.
     implementation("androidx.window:window:1.4.0")
+
+    // AI in Box, Phase 1 (see ai-in-box-research.md §9): the router
+    // tries Gemini Nano first, then a downloaded LiteRT-LM model, then
+    // free cloud legs via the user's own key, then ML Kit classic.
+    // ML Kit GenAI (Gemini Nano via AICore) — needs minSdk 26, which
+    // Box already is. 1.0.0-beta4 is the version the official docs
+    // print; its Kotlin metadata is 2.3.0, which the bundled Kotlin
+    // 2.2.10 can still read (2.2 reads up to 2.3.0).
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+    // ML Kit classic: Smart Reply (bundled model, no download) and
+    // Entity Extraction (model downloads on first use via Play
+    // Services). Both work on essentially every phone, no key.
+    implementation("com.google.mlkit:smart-reply:17.0.4")
+    implementation("com.google.mlkit:entity-extraction:16.0.0-beta6")
+    // LiteRT-LM — the downloaded-model runtime (MediaPipe LLM
+    // Inference is maintenance-only; new code starts here). PINNED at
+    // 0.16.1: it carries Kotlin metadata 2.3.0 and builds with the
+    // bundled Kotlin 2.2.10, while 0.17.0+ carry metadata 2.4.0 and
+    // need Kotlin 2.3+. Only arm64-v8a + x86_64 native libs ship —
+    // the code checks Build.SUPPORTED_ABIS before loading.
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
+    // Coroutines pin the LiteRT-LM recipe requires: the AAR's POM
+    // asks for an older coroutines version than its bytecode calls,
+    // and without this pin streaming replies crash with
+    // NoSuchMethodError when the stream completes.
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 }

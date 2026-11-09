@@ -205,3 +205,37 @@ app" client ID — free, no user login, no secret.
   preferences, including the floating bottom bar toggle (default on).
 - `app/src/main/java/com/ppp65isking/box/MainActivity.kt` — the
   floating icon-only bottom bar (Haze blur over scrolling content).
+
+## AI in Box (Phase 1)
+
+Multiple free AI models with automatic fallback switching — one
+`AiRouter.complete(task)` entry point, every feature calls it, never
+a model directly. Full research: `ai-in-box-research.md` (§9).
+
+- Chain (Auto): Gemini Nano → downloaded Qwen model → Groq cloud →
+  Gemini cloud → OpenRouter free → ML Kit classic (Smart Reply) →
+  plain list. A leg that fails or hits a rate limit is cooled down
+  (15 min for rate limits, 5 min otherwise) instead of hammered.
+- `app/src/main/java/com/ppp65isking/box/data/ai/` — `AiRouter.kt`
+  (types + router), `NanoEngine.kt` (ML Kit GenAI Prompt API,
+  `genai-prompt:1.0.0-beta4`), `LiteRtEngine.kt` (LiteRT-LM
+  `litertlm-android:0.16.1` — pinned: 0.17+ needs Kotlin 2.3+, the
+  build has Kotlin 2.2.10 — plus the model download with size +
+  SHA-256 checks), `CloudEngines.kt` (Groq / Gemini / OpenRouter,
+  per-user keys only), `ClassicEngine.kt` (Smart Reply),
+  `PlainEngine.kt`, `EntityActions.kt`, `AiPrefs.kt`, `AiKeyStore.kt`.
+- The downloaded model is Qwen 2.5 1.5B int8 `.litertlm` (~1.6 GB),
+  NOT the 0.5B: the litert-community 0.5B repo has no `.litertlm`
+  bundle (only MediaPipe `.task` files, which LiteRT-LM can't load).
+  Wi-Fi-only download, verified by exact size + SHA-256.
+- Gemini Nano is FOREGROUND-ONLY (BACKGROUND_USE_BLOCKED) — every
+  Nano call in Box runs while Box is open, on tap. The Settings
+  "Check Nano" button is the on-device test for sideloaded Box.
+- No Muse leg: no free Muse API exists (pay-as-you-go, key required).
+  No Together / Cerebras / HF free legs (terms changed Oct 2026).
+  No keys are ever embedded in the app or repo — cloud keys are
+  typed in by the user on the AI settings screen, same pattern as
+  the Steam key.
+- Features: "Catch me up" digest on Inbox, Smart Reply drafts +
+  entity quick actions on Messages, Settings → "AI model" screen
+  (Auto/force modes, model download, keys, Nano check).
