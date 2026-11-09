@@ -6,12 +6,11 @@ plugins {
 android {
     namespace = "com.ppp65isking.box"
     // compileSdk 37: the material3 1.5.0 line (Material 3 Expressive) needs
-    // compileSdk 37. sdkmanager trial 2026-11-09 FAILED (cannot find
-    // 'platforms;android-37' on any channel, stable/beta/canary; the
-    // runner's cmdline-tools has no `android` binary either) — this build
-    // trials the new android CLI from a downloaded cmdline-tools 15859902
-    // instead (see workflow). The platform lands at android-37.0, so
-    // compileSdkMinor = 0 is required for AGP to resolve it.
+    // compileSdk 37. The android-CLI trial 2026-11-09 PASSED (the new
+    // `android` CLI from a downloaded cmdline-tools 15859902 installs
+    // platforms/android-37.0@2.0.0 --beta; see workflow). The platform
+    // lands at android-37.0, so compileSdkMinor = 0 is required for AGP
+    // to resolve it.
     // targetSdk stays 36 (Play floor); minSdk stays 26.
     compileSdk = 37
     compileSdkMinor = 0
@@ -67,8 +66,11 @@ android {
 }
 
 dependencies {
-    // Compose BOM 2026.06.01 for everything except material3 (see below).
-    val composeBom = platform("androidx.compose:compose-bom:2026.06.01")
+    // Compose BOM 2026.09.00 (Compose 1.12.1): material3 1.5.0-rc01
+    // (Material 3 Expressive) was built against Compose 1.12.0, so
+    // the stack has to be 1.12.x — the old 2026.06.01 BOM pinned
+    // 1.11.4, which material3 1.5.0 is not binary-compatible with.
+    val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
@@ -80,14 +82,14 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.foundation:foundation")
 
-    // Material 3 comes from the BOM (stable 1.4.x line). Do NOT pin the
-    // 1.5.0 line (Material 3 Expressive): it drags the whole Compose stack
-    // to 1.12.0, which requires compileSdk 37, and the API-37 platform is
-    // not downloadable in CI yet — beta-channel trial 2026-11-09 failed
-    // (sdkmanager finds no 'platforms;android-37' on any channel). See
-    // Theme.kt. NOTE: the BOM only pins versions — the artifact still needs
-    // declaring (no version here).
-    implementation("androidx.compose.material3:material3")
+    // Material 3 Expressive (1.5.0-rc01, the current RC per the
+    // Android Developers release page, 2026-11-04) — pinned
+    // explicitly to override the BOM's stable 1.4.0. Requires
+    // compileSdk 37, which CI now has (android-CLI trial 2026-11-09
+    // installed platforms/android-37.0@2.0.0 --beta; see workflow).
+    // 1.5.0-rc01 was built against Compose 1.12.0, which the
+    // 2026.09.00 BOM provides as 1.12.1.
+    implementation("androidx.compose.material3:material3:1.5.0-rc01")
     // Icons are not transitive since 1.4.0 — declare both explicitly.
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.material:material-icons-extended")
@@ -117,6 +119,14 @@ dependencies {
     // Jetpack WindowManager — foldable detection (FoldingFeature) for
     // the vertical nav rail on foldables.
     implementation("androidx.window:window:1.4.0")
+
+    // Haze 2.1.0 — real backdrop blur for the floating bottom bar
+    // (replaces the fake translucent fill). haze-blur-material3
+    // provides HazeBlurStyle.Material3(), the theme-aware blur
+    // style (surface color + tint from the current theme).
+    implementation("dev.chrisbanes.haze:haze:2.1.0")
+    implementation("dev.chrisbanes.haze:haze-blur:2.1.0")
+    implementation("dev.chrisbanes.haze:haze-blur-material3:2.1.0")
 
     // AI in Box, Phase 1 (see ai-in-box-research.md §9): the router
     // tries Gemini Nano first, then a downloaded LiteRT-LM model, then

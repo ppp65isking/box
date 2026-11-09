@@ -50,6 +50,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.HazeBlurStyle
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeBlur
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import com.ppp65isking.box.ui.AiSettingsScreen
 import com.ppp65isking.box.ui.DealsScreen
 import com.ppp65isking.box.ui.DiscordScreen
@@ -113,6 +119,11 @@ private fun BoxNav() {
     val railOnLeft by app.uiPrefs.railOnLeft.collectAsState()
     val previewRail by app.uiPrefs.previewRail.collectAsState()
 
+    // Haze state for the floating bar's real blur: the screen content
+    // is the blur source, the bar is the effect. Only used while the
+    // floating bar is showing (see below).
+    val hazeState = rememberHazeState()
+
     // Foldables (any FoldingFeature, folded or unfolded) get the
     // vertical icon rail instead of a bottom bar — see FoldableRail.
     // Phones keep the floating pill / standard bar. The Settings
@@ -170,10 +181,20 @@ private fun BoxNav() {
                 .padding(padding),
         ) {
             // The screens fill the whole area, so content scrolls under
-            // the floating pill.
+            // the floating pill. The content is also the Haze blur
+            // source: the floating bar blurs whatever scrolls under it.
+            // Only registered while the floating bar is showing — the
+            // standard bar and the foldable rail don't blur anything.
             Box(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .then(
+                        if (floatingBar && !isFoldable) {
+                            Modifier.hazeSource(state = hazeState)
+                        } else {
+                            Modifier
+                        },
+                    ),
             ) {
                 when (secondary) {
                     "github" -> GitHubScreen()
@@ -208,6 +229,7 @@ private fun BoxNav() {
                     selected = if (secondary == null) destination else null,
                     onSelect = { go(it) },
                     modifier = Modifier.align(Alignment.BottomCenter),
+                    hazeState = hazeState,
                 )
             }
         }
@@ -267,20 +289,23 @@ private fun FoldableRail(
 /**
  * Floating, icon-only bottom bar (Settings toggle, default on). A
  * detached pill with side and bottom margins and a shadow, so it reads
- * as floating above the content, with a frosted translucent fill so the
- * content scrolling under it still shows through. Five icons, no
+ * as floating above the content — and the fill is a REAL backdrop blur
+ * (Haze 2.1.0): the screen content behind the bar is blurred through
+ * it, with the theme's surface color and tint on top. Five icons, no
  * labels; the selected tab is the primary color.
  *
- * Real blur was tried (Haze 1.7.3) and dropped: it needs compileSdk 37,
- * and the API-37 platform is not downloadable in CI — the same wall
- * that blocked Material 3 Expressive. If SDK 37 ever ships, swap the
- * translucent fill for a real blur then.
+ * The blur needs the screen content registered as a Haze source (see
+ * BoxNav) and the bar as the effect, both sharing one HazeState.
+ * HazeInput.Backdrop samples the window pixels drawn behind the bar
+ * and falls back to the registered source where the native backdrop
+ * path isn't available (everything before Android 17 QPR2).
  */
 @Composable
 private fun FloatingIconBar(
     selected: Destination?,
     onSelect: (Destination) -> Unit,
     modifier: Modifier = Modifier,
+    hazeState: HazeState,
 ) {
     val pillShape = RoundedCornerShape(28.dp)
     Row(
@@ -289,9 +314,9 @@ private fun FloatingIconBar(
             .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
             .shadow(elevation = 12.dp, shape = pillShape)
             .clip(pillShape)
-            .background(
-                MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f),
-                pillShape,
+            .hazeBlur(
+                input = HazeInput.Backdrop(hazeState),
+                style = HazeBlurStyle.Material3(),
             )
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
