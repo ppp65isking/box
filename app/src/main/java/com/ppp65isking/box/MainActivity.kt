@@ -320,6 +320,10 @@ private fun FloatingIconBar(
                 style = HazeStyle(
                     backgroundColor = MaterialTheme.colorScheme
                         .surfaceContainer.copy(alpha = 0.7f),
+                    // HazeStyle has two constructors (tints list vs
+                    // single tint) — passing tints pins the first so
+                    // the call isn't ambiguous.
+                    tints = emptyList(),
                     blurRadius = 20.dp,
                     noiseFactor = 0f,
                 ),

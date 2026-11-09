@@ -7,8 +7,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
-import androidx.compose.material3.expressiveDarkColorScheme
-import androidx.compose.material3.expressiveLightColorScheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -16,10 +16,18 @@ import androidx.compose.ui.unit.dp
 // Box colors: orange, green, blue. NO purple anywhere — Anthony's call.
 // Primary = vivid orange, secondary = fresh green, tertiary = bright blue.
 //
-// Material 3 Expressive (material3 1.5.0-rc01): the expressive theme,
-// expressive color schemes, and the expressive motion scheme. The
-// palette is the same as the old stable-M3 fallback — only the theme,
-// shapes, and motion changed. Needs compileSdk 37 (see build.gradle.kts).
+// Material 3 Expressive (material3 1.5.0-rc01): the expressive theme
+// and the expressive motion scheme. The palette is the same as the
+// old stable-M3 fallback — only the theme, shapes, and motion
+// changed. Needs compileSdk 37 (see build.gradle.kts).
+//
+// NOTE on the color schemes: expressiveLightColorScheme() exists but
+// takes NO parameters (it is the default expressive baseline, and
+// there is no expressiveDarkColorScheme at all in 1.5.0-rc01). A
+// custom palette like Box's goes in the standard lightColorScheme /
+// darkColorScheme and is handed to MaterialExpressiveTheme — the
+// expressive part is the theme + motion + shapes, not the scheme
+// factory.
 private val Orange = Color(0xFFF97316)
 private val OrangeLight = Color(0xFFFFB74D)
 private val Green = Color(0xFF16A34A)
@@ -27,7 +35,7 @@ private val GreenLight = Color(0xFF81C784)
 private val Blue = Color(0xFF2563EB)
 private val BlueLight = Color(0xFF64B5F6)
 
-private val BoxLightColors: ColorScheme = expressiveLightColorScheme(
+private val BoxLightColors: ColorScheme = lightColorScheme(
     primary = Orange,
     onPrimary = Color.White,
     primaryContainer = Color(0xFFFFE0B2),
@@ -50,7 +58,7 @@ private val BoxLightColors: ColorScheme = expressiveLightColorScheme(
     outlineVariant = Color(0xFFEFEBE9),
 )
 
-private val BoxDarkColors: ColorScheme = expressiveDarkColorScheme(
+private val BoxDarkColors: ColorScheme = darkColorScheme(
     primary = OrangeLight,
     onPrimary = Color(0xFF3E1F00),
     primaryContainer = Color(0xFF7A3A00),
