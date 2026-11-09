@@ -164,7 +164,7 @@ fun launchOAuth(context: Context, service: OAuthService, store: OAuthStore): Boo
     return true
 }
 
-private data class TokenResponse(
+data class TokenResponse(
     val accessToken: String,
     val refreshToken: String?,
     val expiresInSeconds: Long,

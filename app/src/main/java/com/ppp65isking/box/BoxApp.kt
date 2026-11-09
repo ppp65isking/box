@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit
  * Holds the app's singletons. The fragile parts are isolated by design:
  * everything YouTube-shaped lives in `innertube/` (one module to touch
  * when the API changes), everything playback-shaped in `playback/`,
- * everything OAuth-shaped in `data/OAuth*.kt` + `data/*Client.kt`.
+ * everything OAuth-shaped in `data/OAuth*.kt` + the data clients.
  */
 class BoxApp : Application() {
 
