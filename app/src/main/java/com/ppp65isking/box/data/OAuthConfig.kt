@@ -23,7 +23,7 @@ object OAuthConfig {
     const val GOOGLE_CLIENT_ID: String = ""
 
     /** Spotify app client ID from the developer dashboard. */
-    const val SPOTIFY_CLIENT_ID: String = ""
+    const val SPOTIFY_CLIENT_ID: String = "27744537a6aa4584acd7b5f118860161"
 
     /** Discord application ID (the OAuth2 client ID). */
     const val DISCORD_CLIENT_ID: String = "1569326730638786754"
