@@ -20,7 +20,8 @@ package com.ppp65isking.box.data
  */
 object OAuthConfig {
     /** Google Cloud OAuth client ID (`….apps.googleusercontent.com`). */
-    const val GOOGLE_CLIENT_ID: String = ""
+    const val GOOGLE_CLIENT_ID: String =
+        "217889708383-oot86oeth6o3ssfj3pqjravdi2kvhg6o.apps.googleusercontent.com"
 
     /** Spotify app client ID from the developer dashboard. */
     const val SPOTIFY_CLIENT_ID: String = "27744537a6aa4584acd7b5f118860161"

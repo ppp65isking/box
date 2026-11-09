@@ -92,8 +92,26 @@ enum class OAuthService(
 
 /** Where the provider sends the user back after sign-in. This exact URI
  *  must be registered for the app's OAuth client on each service
- *  (see SETUP.md). The intent-filter for it lives in AndroidManifest.xml. */
-fun redirectUri(service: OAuthService): String = "box://oauth/${service.key}"
+ *  (see SETUP.md). The intent-filter for it lives in AndroidManifest.xml.
+ *
+ *  Google is the exception: it only accepts custom schemes with a
+ *  period in them, so `box://` is refused and the Google redirect is
+ *  the documented reverse-DNS form built from the Google client ID's
+ *  number — `com.googleusercontent.apps.<number>:/oauth2redirect`. */
+fun redirectUri(service: OAuthService): String =
+    if (service == OAuthService.GOOGLE) {
+        googleRedirectScheme()?.let { "$it:/oauth2redirect" }
+            ?: "box://oauth/${service.key}"
+    } else {
+        "box://oauth/${service.key}"
+    }
+
+/** Google's reverse-DNS redirect scheme, derived from the Google client
+ *  ID's number — null while the ID is blank. */
+fun googleRedirectScheme(): String? =
+    OAuthConfig.GOOGLE_CLIENT_ID.substringBefore("-")
+        .takeIf { it.isNotBlank() }
+        ?.let { "com.googleusercontent.apps.$it" }
 
 /** PKCE helpers. The verifier is 43 URL-safe characters (32 random
  *  bytes); the challenge is base64url(SHA-256(verifier)) with no padding. */

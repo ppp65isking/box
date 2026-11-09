@@ -56,9 +56,15 @@ Steps:
      verification is only needed if Box goes public.
 4. **Create the OAuth client** (Credentials → Create Credentials →
    OAuth client ID → application type **Desktop app**). Desktop apps
-   need no client secret with PKCE.
-5. In the client, add the authorized redirect URI **exactly**:
-   `box://oauth/google`
+   need no client secret with PKCE. The create form asks for no
+   redirect — that is normal; it goes on the client's edit page next.
+5. Click into the client you just made and add the authorized
+   redirect URI **exactly**:
+   `com.googleusercontent.apps.217889708383:/oauth2redirect`
+   (Google refuses `box://…` here — custom schemes need a period in
+   them — so Box uses this reverse-DNS form built from the client
+   ID's number instead. If the client ID ever changes, this URI and
+   the matching intent-filter in `AndroidManifest.xml` change with it.)
 6. Copy the **Client ID** (the long `….apps.googleusercontent.com`
    string — not the secret) and **give it to Cosmo once**. It goes in
    `OAuthConfig.kt` (`GOOGLE_CLIENT_ID`) and ships with the app.

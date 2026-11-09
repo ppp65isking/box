@@ -16,6 +16,7 @@ import com.ppp65isking.box.data.UiPrefs
 import com.ppp65isking.box.data.WeatherClient
 import com.ppp65isking.box.data.ensureAccessToken
 import com.ppp65isking.box.data.exchangeCode
+import com.ppp65isking.box.data.googleRedirectScheme
 import com.ppp65isking.box.innertube.AuthStore
 import com.ppp65isking.box.innertube.InnerTubeClient
 import com.ppp65isking.box.innertube.StreamResolver
@@ -114,7 +115,9 @@ class BoxApp : Application() {
         }
 
     /**
-     * Handle the box://oauth/<service>?code=…&state=… redirect that
+     * Handle the box://oauth/<service>?code=…&state=… redirect — or
+     * Google's reverse-DNS redirect
+     * (com.googleusercontent.apps.<number>:/oauth2redirect) — that
      * comes back after a user signs in. Safe to call from onCreate and
      * onNewIntent. Validates the state (a mismatch means this redirect
      * did not come from a login Box started), exchanges the code for
@@ -122,9 +125,13 @@ class BoxApp : Application() {
      * Runs entirely on [oauthScope] — never on the main thread.
      */
     fun handleOAuthRedirect(uri: Uri) {
-        if (uri.scheme != "box" || uri.host != "oauth") return
-        val service = OAuthService.fromKey(uri.pathSegments.firstOrNull())
-            ?: return
+        val service = when {
+            uri.scheme == "box" && uri.host == "oauth" ->
+                OAuthService.fromKey(uri.pathSegments.firstOrNull())
+            uri.scheme == googleRedirectScheme() &&
+                uri.path == "/oauth2redirect" -> OAuthService.GOOGLE
+            else -> return
+        } ?: return
         val code = uri.getQueryParameter("code")
         val state = uri.getQueryParameter("state")
         val error = uri.getQueryParameter("error")
