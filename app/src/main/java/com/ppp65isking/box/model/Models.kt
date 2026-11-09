@@ -67,6 +67,115 @@ data class SmsMessage(
     val isOutgoing: Boolean,
 )
 
+/** --- Google (one OAuth sign-in, read-only) --- */
+
+/** The signed-in Google account (userinfo endpoint). */
+data class GoogleProfile(
+    val name: String?,
+    val email: String?,
+    val pictureUrl: String?,
+)
+
+/** One Gmail message (subject/from/date + snippet). */
+data class GmailMessage(
+    val id: String,
+    val subject: String,
+    val from: String,
+    val date: String?,
+    val snippet: String?,
+)
+
+/** One Calendar event in the next 7 days. `start` is an RFC 3339
+ *  timestamp or a plain date for all-day events. */
+data class CalendarEvent(
+    val summary: String,
+    val start: String?,
+    val location: String?,
+)
+
+/** One Drive file (or a Doc/Slide, filtered by MIME type). */
+data class DriveFile(
+    val id: String,
+    val name: String,
+    val mimeType: String?,
+    val modifiedTime: String?,
+    val webViewLink: String?,
+)
+
+/** One photo from the Google Photos Library API. `baseUrl` needs a size
+ *  suffix (e.g. "=w400") before it can be loaded as an image. */
+data class PhotoItem(
+    val id: String,
+    val filename: String?,
+    val mimeType: String?,
+    val baseUrl: String?,
+)
+
+/** --- Spotify (user OAuth sign-in) --- */
+
+data class SpotifyProfile(
+    val displayName: String?,
+    val email: String?,
+    /** "premium" or "free" — decides whether playback control works. */
+    val product: String?,
+    val imageUrl: String?,
+)
+
+data class SpotifyPlaylist(
+    val id: String,
+    val name: String,
+    val trackCount: Int,
+    val imageUrl: String?,
+    val owner: String?,
+)
+
+data class SpotifyTrack(
+    val id: String,
+    val name: String,
+    val artists: List<String>,
+    val albumName: String?,
+    val imageUrl: String?,
+    val durationMs: Long,
+)
+
+data class SpotifyNowPlaying(
+    val track: SpotifyTrack?,
+    val isPlaying: Boolean,
+    val progressMs: Long,
+)
+
+/** --- Discord (user OAuth2 sign-in, read-only) --- */
+
+data class DiscordUser(
+    val id: String,
+    val username: String,
+    val displayName: String?,
+    val email: String?,
+    val avatarUrl: String?,
+)
+
+data class DiscordGuild(
+    val id: String,
+    val name: String,
+    val iconUrl: String?,
+)
+
+/** A text (type 0) or announcement (type 5) channel. */
+data class DiscordChannel(
+    val id: String,
+    val name: String,
+    val type: Int,
+    val position: Int,
+)
+
+data class DiscordMessage(
+    val id: String,
+    val content: String,
+    val authorName: String,
+    val authorAvatarUrl: String?,
+    val timestamp: String?,
+)
+
 /** Current weather in Woburn, MA (Open-Meteo, no key). */
 data class WeatherNow(
     val tempC: Double,

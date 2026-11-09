@@ -1,6 +1,7 @@
 package com.ppp65isking.box.data
 
 import android.content.Context
+import android.content.Intent
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.StepsRecord
@@ -55,5 +56,17 @@ class HealthConnectHelper(private val context: Context) {
             )
             StepsResult.Ok(response.records.sumOf { it.count })
         }.getOrElse { StepsResult.Error }
+    }
+
+    /** Open Health Connect's own settings screen, where the user can grant
+     *  READ_STEPS by hand — the recovery when the in-app permission request
+     *  misfires (it can open onboarding and never reach the grant, and a
+     *  second tap then does nothing). Best-effort: no-op if unresolvable. */
+    fun openSettings() {
+        runCatching {
+            val intent = Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        }
     }
 }

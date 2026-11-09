@@ -85,4 +85,8 @@ dependencies {
 
     // Health Connect (steps card on Home) — read-only.
     implementation("androidx.health.connect:connect-client:1.1.0-alpha10")
+
+    // Custom Tabs — OAuth sign-in pages open in-app and redirect back
+    // to box://oauth/<service>. Small, stable, no extra setup.
+    implementation("androidx.browser:browser:1.8.0")
 }

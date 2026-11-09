@@ -2,23 +2,29 @@ package com.ppp65isking.box.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import com.ppp65isking.box.BoxApp
 import com.ppp65isking.box.ui.components.BoxHeader
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -32,7 +38,11 @@ import com.ppp65isking.box.data.openUrl
 fun MoreScreen(onNavigate: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxSize()) {
         BoxHeader("More")
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
             Text(
                 text = "Browse",
                 style = MaterialTheme.typography.titleMedium,
@@ -48,12 +58,28 @@ fun MoreScreen(onNavigate: (String) -> Unit) {
             MoreRow(title = "Messages", subtitle = "Your SMS conversations") {
                 onNavigate("sms")
             }
+            MoreRow(title = "Google", subtitle = "Mail, Calendar, Drive, Photos") {
+                onNavigate("google")
+            }
+            MoreRow(title = "Spotify", subtitle = "Your library and playback") {
+                onNavigate("spotify")
+            }
+            MoreRow(title = "Discord", subtitle = "Servers and channels") {
+                onNavigate("discord")
+            }
             Text(
                 text = "Setup",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 8.dp),
             )
+            MoreRow(
+                title = "Connected accounts",
+                subtitle = "Developer setup — Box's app IDs",
+            ) {
+                onNavigate("setup")
+            }
+            FloatingBarSwitch()
             RedditAppIdField()
             Text(
                 text = "Coming tomorrow",
@@ -68,9 +94,7 @@ fun MoreScreen(onNavigate: (String) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = "• Gmail — read + search your mail\n" +
-                    "• Spotify — your library and playback\n" +
-                    "• Discord and Telegram — chats inside Box\n" +
+                text = "• Telegram — chats inside Box\n" +
                     "• Outlook — work and school mail\n" +
                     "• Threads — feed and posting\n" +
                     "• AI chats — Gemini, ChatGPT, Grok, Copilot, Perplexity",
@@ -135,6 +159,38 @@ private fun RedditAppIdField() {
     ) {
         Text(if (saved) "Saved" else "Save Reddit app ID")
     }
+}
+
+/** Bottom-bar style switch. Writes to UiPrefs, which MainActivity reads
+ *  as a StateFlow — the bar changes the moment the switch flips, no
+ *  restart needed. */
+@Composable
+private fun FloatingBarSwitch() {
+    val context = LocalContext.current
+    val app = context.applicationContext as BoxApp
+    val floatingTextBar by app.uiPrefs.floatingTextBar.collectAsState()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Floating bottom bar",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "Text-only tabs in a floating pill",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(
+            checked = floatingTextBar,
+            onCheckedChange = { app.uiPrefs.setFloatingTextBar(it) },
+        )
+    }
+    Spacer(modifier = Modifier.height(8.dp))
 }
 
 @Composable

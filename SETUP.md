@@ -1,0 +1,158 @@
+# Box — Developer Setup (Google, Spotify, Discord)
+
+This page is for **Anthony-as-developer**, not for people using Box.
+
+## The one idea to hold onto
+
+Each service needs **one OAuth client for the whole app**, registered once
+by the developer. Those client IDs live in the app under
+**More → Setup → Connected accounts**. An end user never creates a dev
+account, never sees a client ID, and never pastes anything: they tap
+**Connect** on the service's screen and sign in with **their own**
+Google / Spotify / Discord account. Box then stores *that user's*
+token on their own phone.
+
+Same principle as the Reddit integration: its client ID is Box's app ID,
+not per-user. No client secrets are involved anywhere — all three
+services use PKCE, so the client ID alone is the credential.
+
+**Do not put any of these IDs in the code or in git.** They are typed
+into the app's Setup screen, which stores them in private
+SharedPreferences on the device.
+
+---
+
+## 1. Google (Gmail + Calendar + Drive + Docs/Slides + Photos)
+
+What it does: one sign-in, read-only. Gmail read + search, Calendar
+events for the next 7 days, Drive files (recent, plus Docs/Slides
+filters), Photos list.
+
+Scopes Box asks for (all read-only):
+`openid email profile`, `gmail.readonly`, `calendar.readonly`,
+`drive.readonly`, `documents.readonly`, `presentations.readonly`,
+`photoslibrary.readonly`.
+
+Steps:
+
+1. Go to [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials).
+   Create a project if there isn't one (name it Box).
+2. **Enable the APIs** (APIs & Services → Library): Gmail API, Google
+   Calendar API, Google Drive API, Google Docs API, Google Slides API,
+   Google Photos Library API.
+3. **OAuth consent screen** (APIs & Services → OAuth consent screen):
+   - User type **External**.
+   - App name `Box`. No logo needed.
+   - Under **Test users**, add the Google account(s) that will sign in.
+     **This matters:** Gmail/Calendar/Drive scopes are "sensitive", so
+     until Google verifies the app it only works for test users, and
+     sign-in shows an "unverified app" warning screen. That is normal
+     for a personal app — tap Advanced → Go to Box to continue. Full
+     verification is only needed if Box goes public.
+4. **Create the OAuth client** (Credentials → Create Credentials →
+   OAuth client ID → application type **Desktop app**). Desktop apps
+   need no client secret with PKCE.
+5. In the client, add the authorized redirect URI **exactly**:
+   `box://oauth/google`
+6. Copy the **Client ID** (the long `….apps.googleusercontent.com`
+   string — not the secret) and paste it in Box: **More → Setup →
+   Connected accounts → Google → Save**.
+7. In Box, open **More → Google → Connect Google** and sign in.
+
+Photos note: Google restricted the Photos Library API in 2025, so the
+list may only show photos the user picked for Box rather than the whole
+library. Box says so on the Photos tab when the list comes back empty —
+that is a Google-side limit, not a Box bug.
+
+## 2. Spotify (library, playlists, currently playing, play/pause)
+
+What it does: profile, your playlists, liked songs, currently playing,
+and play/pause on your own active player.
+
+Scopes Box asks for: `user-read-private user-read-email
+playlist-read-private playlist-read-collaborative user-library-read
+user-read-currently-playing user-read-playback-state
+user-modify-playback-state`.
+
+Steps:
+
+1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+   and **Create app**. Name it Box, description anything.
+2. In the app settings, add the redirect URI **exactly**:
+   `box://oauth/spotify`
+   (Spotify matches it character-for-character, including case.)
+3. Copy the **Client ID** from the dashboard and paste it in Box:
+   **More → Setup → Connected accounts → Spotify → Save**.
+   No secret is needed — Box uses Authorization Code + PKCE, which is
+   the flow Spotify requires for mobile apps.
+4. In Box, open **More → Spotify → Connect Spotify** and sign in.
+
+Two honest limits:
+
+- **Playback control needs Premium.** Play/pause through the Web API
+  only works on Premium accounts, and only while a Spotify device is
+  already open/playing. A free account still gets the library,
+  playlists, and currently playing. When control is refused, Box says
+  which of the two is missing instead of showing a generic error.
+- **Development mode:** a new Spotify app starts in development mode.
+  If sign-in complains the account isn't allowed, add the account under
+  the app's **Users and Access** in the dashboard.
+
+## 3. Discord (servers, channels, messages — with one real limit)
+
+What it does: profile, server list, text-channel lists. Read-only —
+Box never sends messages and never uses a bot token.
+
+Scopes Box asks for: `identify email guilds`.
+
+Steps:
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+   → **New Application**. Name it Box.
+2. **OAuth2 → Redirects**: add **exactly** `box://oauth/discord`,
+   then Save Changes.
+3. **General Information**: copy the **Application ID** — that is the
+   client ID. Paste it in Box: **More → Setup → Connected accounts →
+   Discord → Save**. (The Client Secret on that page is never needed:
+   Box uses PKCE.)
+4. In Box, open **More → Discord → Connect Discord** and sign in.
+
+**The real limit — read this before expecting messages to load:**
+Discord's `messages.read` scope is for local RPC server access only,
+per Discord's own docs. A user OAuth2 token **cannot read channel
+messages through Discord's HTTP API**. Box requests only the scopes
+that actually work for a user token, and it still attempts the
+messages endpoint — but when Discord refuses (401/403), the screen
+says plainly that Discord doesn't allow it, instead of showing an
+empty list and pretending there are no messages. Servers and channels
+work fine. Sending messages is impossible with a user token, so Box
+doesn't try.
+
+---
+
+## Testing it end to end
+
+1. Paste all three client IDs in More → Setup. Each row should read
+   "Status: configured ✓".
+2. Open each service under More and tap Connect. You should land in a
+   Custom Tab (browser sheet inside Box), sign in with your own
+   account, and come straight back into Box signed in.
+3. Sign out from the top of any service screen to test again.
+4. If a service's screen says "isn't set up yet", its client ID is
+   missing or blank — re-check the paste.
+
+## Where things live (for the next person touching this code)
+
+- `app/src/main/java/com/ppp65isking/box/data/OAuth.kt` — service
+  definitions, PKCE, auth-URL building, code exchange, token refresh.
+- `app/src/main/java/com/ppp65isking/box/data/OAuthStore.kt` — client
+  IDs + user tokens in SharedPreferences.
+- `app/src/main/java/com/ppp65isking/box/data/GoogleClient.kt`,
+  `SpotifyClient.kt`, `DiscordClient.kt` — the API calls (read-only,
+  except Spotify play/pause).
+- `app/src/main/java/com/ppp65isking/box/ui/GoogleScreen.kt`,
+  `SpotifyScreen.kt`, `DiscordScreen.kt`, `SetupScreen.kt` — the screens.
+- `BoxApp.handleOAuthRedirect()` — the `box://oauth/<service>` return
+  path (intent-filter in `AndroidManifest.xml`).
+- `app/src/main/java/com/ppp65isking/box/data/UiPrefs.kt` — UI
+  preferences, including the floating bottom bar toggle.

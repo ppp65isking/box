@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,6 +70,7 @@ import com.ppp65isking.box.model.Category
 import com.ppp65isking.box.model.WeatherNow
 import com.ppp65isking.box.ui.components.AppIcon
 import com.ppp65isking.box.ui.components.BoxHeader
+import com.ppp65isking.box.ui.components.OnResume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -136,6 +138,9 @@ fun HomeScreen() {
     LaunchedEffect(stepsReload) {
         stepsState = withContext(Dispatchers.IO) { app.healthConnectHelper.todaySteps() }
     }
+    // Re-check when coming back from Health Connect settings, where the
+    // permission can be granted by hand.
+    OnResume { stepsReload++ }
 
     // "Jump back in" — recently launched from Box.
     val launchHistory = remember { LaunchHistory(context) }
@@ -193,6 +198,8 @@ fun HomeScreen() {
                             setOf(HealthPermission.getReadPermission(StepsRecord::class)),
                         )
                     },
+                    onOpenHealthConnect = { app.healthConnectHelper.openSettings() },
+                    onRetry = { stepsReload++ },
                 )
             }
             // Jump back in.
@@ -386,6 +393,8 @@ private fun WeatherCard(state: WeatherState, onRetry: () -> Unit) {
 private fun StepsCard(
     state: HealthConnectHelper.StepsResult?,
     onRequestPermission: () -> Unit,
+    onOpenHealthConnect: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -435,7 +444,12 @@ private fun StepsCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Button(onClick = onRequestPermission) { Text("Allow") }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Button(onClick = onRequestPermission) { Text("Allow") }
+                        TextButton(onClick = onOpenHealthConnect) {
+                            Text("Health Connect settings")
+                        }
+                    }
                 }
                 is HealthConnectHelper.StepsResult.Unavailable -> {
                     Column {
@@ -452,10 +466,13 @@ private fun StepsCard(
                     }
                 }
                 is HealthConnectHelper.StepsResult.Error -> {
-                    Text(
-                        text = "Couldn't read steps right now.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Couldn't read steps right now.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    TextButton(onClick = onRetry) { Text("Retry") }
                 }
             }
         }
