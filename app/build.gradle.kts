@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.ppp65isking.box"
-    // compileSdk 36: the material3 1.5.0 line (Material 3 Expressive) needs
-    // compileSdk 37, whose platform is not downloadable in CI yet — see
-    // Theme.kt. Beta-channel trial 2026-11-09 FAILED (sdkmanager cannot
-    // find 'platforms;android-37' on any channel, stable/beta/canary).
+    // compileSdk 37: the material3 1.5.0 line (Material 3 Expressive) needs
+    // compileSdk 37. sdkmanager trial 2026-11-09 FAILED (cannot find
+    // 'platforms;android-37' on any channel, stable/beta/canary) — this
+    // build trials the new android CLI instead (see workflow).
     // targetSdk stays 36 (Play floor); minSdk stays 26.
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.ppp65isking.box"

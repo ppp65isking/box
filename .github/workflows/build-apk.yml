@@ -32,6 +32,12 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          # Trial 2026-11-09: the API-37 platform is not in sdkmanager's
+          # repo on any channel (beta/canary tried: "Failed to find
+          # package 'platforms;android-37'"). sdkmanager is deprecated;
+          # try the new android CLI instead (One-UI installs this exact
+          # package from the beta channel with it).
+          yes | android sdk install --beta platforms/android-37
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
