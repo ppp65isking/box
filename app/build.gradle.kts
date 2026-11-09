@@ -83,8 +83,10 @@ dependencies {
     // Thumbnails / avatars.
     implementation("io.coil-kt:coil-compose:2.7.0")
 
-    // Health Connect (steps card on Home) — read-only.
-    implementation("androidx.health.connect:connect-client:1.1.0-alpha10")
+    // Health Connect (steps card on Home) — read-only. 1.1.0 stable:
+    // the 1.1.0-alpha10 permission-request contract silently did
+    // nothing on some phones (no popup, no grant).
+    implementation("androidx.health.connect:connect-client:1.1.0")
 
     // Custom Tabs — OAuth sign-in pages open in-app and redirect back
     // to box://oauth/<service>. Small, stable, no extra setup.

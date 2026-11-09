@@ -137,9 +137,16 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
     val healthConnect by app.uiPrefs.healthConnect.collectAsState()
     var stepsState by remember { mutableStateOf<HealthConnectHelper.StepsResult?>(null) }
     var stepsReload by remember { mutableIntStateOf(0) }
+    // Set when the Allow popup returns without a grant — the popup can
+    // silently do nothing on some phones, so the card then points at
+    // the Health Connect settings fallback instead.
+    var allowAttempted by remember { mutableStateOf(false) }
     val healthPermissionLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract(),
-    ) { stepsReload++ }
+    ) {
+        allowAttempted = true
+        stepsReload++
+    }
     LaunchedEffect(stepsReload, healthConnect) {
         stepsState = if (healthConnect) {
             withContext(Dispatchers.IO) { app.healthConnectHelper.todaySteps() }
@@ -215,6 +222,7 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
                 item(span = { GridItemSpan(4) }) {
                     StepsCard(
                         state = stepsState,
+                        allowAttempted = allowAttempted,
                         onRequestPermission = {
                             healthPermissionLauncher.launch(
                                 setOf(HealthPermission.getReadPermission(StepsRecord::class)),
@@ -420,6 +428,7 @@ private fun WeatherCard(state: WeatherState, onRetry: () -> Unit) {
 @Composable
 private fun StepsCard(
     state: HealthConnectHelper.StepsResult?,
+    allowAttempted: Boolean,
     onRequestPermission: () -> Unit,
     onOpenHealthConnect: () -> Unit,
     onRetry: () -> Unit,
@@ -471,6 +480,15 @@ private fun StepsCard(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (allowAttempted) {
+                            Text(
+                                text = "The popup didn't grant access — tap " +
+                                    "'Health Connect settings' below and " +
+                                    "allow Steps there instead.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Button(onClick = onRequestPermission) { Text("Allow") }
