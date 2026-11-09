@@ -32,6 +32,11 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          # TRIAL (2026-11-09): API 37 platform lives in the SDK beta
+          # channel, not stable — plain `sdkmanager "platforms;android-37"`
+          # fails. Channel 1 = beta. If this install fails, the trial
+          # fails (do not guess further in this build).
+          sdkmanager --channel=1 "platforms;android-37"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
