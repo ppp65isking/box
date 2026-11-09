@@ -11,6 +11,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
+import java.io.IOException
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -189,6 +191,35 @@ data class ExchangeResult(
     val error: String?,
 )
 
+/** POST to a token endpoint, retrying transport failures. A DNS
+ *  failure, timeout, or dropped connection means the request never
+ *  reached the provider, so the code / refresh token was not consumed
+ *  and retrying is safe. A provider refusal (non-200) is returned at
+ *  once and never retried. Callers must run this on Dispatchers.IO —
+ *  the backoff sleeps on that thread. */
+private sealed interface TokenPost {
+    /** The provider answered — caller reads the body and closes it. */
+    data class Responded(val response: Response) : TokenPost
+    /** No answer after 3 tries (DNS / timeout / dropped connection). */
+    data class NetworkFailed(val error: String) : TokenPost
+}
+
+private fun postToken(request: Request, okHttp: OkHttpClient): TokenPost {
+    var lastError = "network error"
+    repeat(3) { attempt ->
+        try {
+            return TokenPost.Responded(okHttp.newCall(request).execute())
+        } catch (e: IOException) {
+            // Never reached the provider — safe to retry.
+            lastError = e.message ?: "network error"
+            if (attempt < 2) Thread.sleep(if (attempt == 0) 1_000L else 2_000L)
+        } catch (e: Exception) {
+            return TokenPost.NetworkFailed(e.message ?: "network error")
+        }
+    }
+    return TokenPost.NetworkFailed(lastError)
+}
+
 /** Exchange an authorization code for tokens (PKCE — no client secret).
  *  The provider's refusal reason comes back in [ExchangeResult.error]
  *  instead of failing silently, so the sign-in screen can say what
@@ -214,30 +245,47 @@ fun exchangeCode(
         .url(service.tokenUrl)
         .post(body)
         .build()
-    return runCatching {
-        okHttp.newCall(request).execute().use { response ->
+    return when (val post = postToken(request, okHttp)) {
+        is TokenPost.NetworkFailed -> ExchangeResult(
+            null,
+            "couldn't reach ${service.label} — check your connection " +
+                "and try again (${post.error})",
+        )
+        is TokenPost.Responded -> post.response.use { response ->
             val raw = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                return ExchangeResult(null, providerError(raw))
+                ExchangeResult(null, providerError(raw))
+            } else {
+                val root = runCatching {
+                    json.parseToJsonElement(raw).jsonObject
+                }.getOrNull()
+                if (root == null) {
+                    ExchangeResult(
+                        null,
+                        "the provider answered something unreadable",
+                    )
+                } else {
+                    val access = root["access_token"]?.jsonPrimitive?.contentOrNull
+                    if (access == null) {
+                        ExchangeResult(
+                            null,
+                            "the provider answered without an access token",
+                        )
+                    } else {
+                        ExchangeResult(
+                            TokenResponse(
+                                accessToken = access,
+                                refreshToken = root["refresh_token"]
+                                    ?.jsonPrimitive?.contentOrNull,
+                                expiresInSeconds = root["expires_in"]
+                                    ?.jsonPrimitive?.intOrNull?.toLong() ?: 3600L,
+                            ),
+                            null,
+                        )
+                    }
+                }
             }
-            val root = json.parseToJsonElement(raw).jsonObject
-            val access = root["access_token"]?.jsonPrimitive?.contentOrNull
-                ?: return ExchangeResult(
-                    null,
-                    "the provider answered without an access token",
-                )
-            ExchangeResult(
-                TokenResponse(
-                    accessToken = access,
-                    refreshToken = root["refresh_token"]?.jsonPrimitive?.contentOrNull,
-                    expiresInSeconds = root["expires_in"]?.jsonPrimitive?.intOrNull
-                        ?.toLong() ?: 3600L,
-                ),
-                null,
-            )
         }
-    }.getOrElse { e ->
-        ExchangeResult(null, e.message ?: "network error")
     }
 }
 
@@ -254,16 +302,28 @@ private fun providerError(raw: String): String {
     return combined.ifEmpty { raw.take(200) }.ifEmpty { "provider refused" }
 }
 
-/** Trade a refresh token for a fresh access token. Returns null when the
- *  refresh token is gone or the provider refused it — the user must sign
- *  in again in that case. Callers must run this on Dispatchers.IO. */
+/** The outcome of trading a refresh token for a fresh access token.
+ *  Refused and NetworkFailed look the same to a caller that only wants
+ *  a token — but they must NOT be treated the same: a refused refresh
+ *  means sign in again, a network failure means the stored grant is
+ *  still good and the app must keep it. */
+sealed interface RefreshResult {
+    data class Ok(val tokens: TokenResponse) : RefreshResult
+    /** The provider refused the refresh token (revoked / expired). */
+    data object Refused : RefreshResult
+    /** The request never reached the provider (DNS / timeout). */
+    data object NetworkFailed : RefreshResult
+}
+
+/** Trade a refresh token for a fresh access token. Callers must run
+ *  this on Dispatchers.IO. */
 fun refreshAccessToken(
     service: OAuthService,
     store: OAuthStore,
     okHttp: OkHttpClient,
-): TokenResponse? {
-    val clientId = store.clientId(service) ?: return null
-    val refresh = store.refreshToken(service) ?: return null
+): RefreshResult {
+    val clientId = store.clientId(service) ?: return RefreshResult.Refused
+    val refresh = store.refreshToken(service) ?: return RefreshResult.Refused
     val body = FormBody.Builder()
         .add("grant_type", "refresh_token")
         .add("refresh_token", refresh)
@@ -273,46 +333,71 @@ fun refreshAccessToken(
         .url(service.tokenUrl)
         .post(body)
         .build()
-    return runCatching {
-        okHttp.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return null
-            val root = json.parseToJsonElement(
-                response.body?.string().orEmpty(),
-            ).jsonObject
-            val access = root["access_token"]?.jsonPrimitive?.contentOrNull
-                ?: return null
-            TokenResponse(
-                accessToken = access,
-                // Providers may or may not rotate the refresh token; keep
-                // the old one when the response has no new one.
-                refreshToken = root["refresh_token"]?.jsonPrimitive?.contentOrNull
-                    ?: refresh,
-                expiresInSeconds = root["expires_in"]?.jsonPrimitive?.intOrNull
-                    ?.toLong() ?: 3600L,
-            )
+    return when (val post = postToken(request, okHttp)) {
+        is TokenPost.NetworkFailed -> RefreshResult.NetworkFailed
+        is TokenPost.Responded -> post.response.use { response ->
+            if (!response.isSuccessful) {
+                RefreshResult.Refused
+            } else {
+                val root = runCatching {
+                    json.parseToJsonElement(
+                        response.body?.string().orEmpty(),
+                    ).jsonObject
+                }.getOrNull() ?: return RefreshResult.Refused
+                val access = root["access_token"]?.jsonPrimitive?.contentOrNull
+                    ?: return RefreshResult.Refused
+                RefreshResult.Ok(
+                    TokenResponse(
+                        accessToken = access,
+                        // Providers may or may not rotate the refresh
+                        // token; keep the old one when the response has
+                        // no new one.
+                        refreshToken = root["refresh_token"]?.jsonPrimitive?.contentOrNull
+                            ?: refresh,
+                        expiresInSeconds = root["expires_in"]?.jsonPrimitive?.intOrNull
+                            ?.toLong() ?: 3600L,
+                    ),
+                )
+            }
         }
-    }.getOrNull()
+    }
+}
+
+/** The outcome of getting a usable access token. NetworkFailed keeps
+ *  the stored grant — the next load retries instead of signing the
+ *  user out over a blip. */
+sealed interface AccessTokenResult {
+    data class Ok(val token: String) : AccessTokenResult
+    /** No stored token, or the provider refused the refresh — sign in again. */
+    data object NeedsSignIn : AccessTokenResult
+    /** The refresh never reached the provider — stored grant kept. */
+    data object NetworkFailed : AccessTokenResult
 }
 
 /** A usable access token for the service: the stored one when it is still
- *  fresh, a refreshed one when it expired, or null when the user needs to
- *  sign in again. Callers must run this on Dispatchers.IO. */
+ *  fresh, a refreshed one when it expired, or NeedsSignIn when the user
+ *  needs to sign in again. Callers must run this on Dispatchers.IO. */
 fun ensureAccessToken(
     service: OAuthService,
     store: OAuthStore,
     okHttp: OkHttpClient,
-): String? {
-    val current = store.accessToken(service) ?: return null
+): AccessTokenResult {
+    val current = store.accessToken(service) ?: return AccessTokenResult.NeedsSignIn
     val leewayMs = 60_000L
     if (System.currentTimeMillis() + leewayMs < store.tokenExpiresAt(service)) {
-        return current
+        return AccessTokenResult.Ok(current)
     }
-    val refreshed = refreshAccessToken(service, store, okHttp) ?: return null
-    store.setTokens(
-        service = service,
-        accessToken = refreshed.accessToken,
-        refreshToken = refreshed.refreshToken,
-        expiresInSeconds = refreshed.expiresInSeconds,
-    )
-    return refreshed.accessToken
+    return when (val refreshed = refreshAccessToken(service, store, okHttp)) {
+        is RefreshResult.Ok -> {
+            store.setTokens(
+                service = service,
+                accessToken = refreshed.tokens.accessToken,
+                refreshToken = refreshed.tokens.refreshToken,
+                expiresInSeconds = refreshed.tokens.expiresInSeconds,
+            )
+            AccessTokenResult.Ok(refreshed.tokens.accessToken)
+        }
+        RefreshResult.Refused -> AccessTokenResult.NeedsSignIn
+        RefreshResult.NetworkFailed -> AccessTokenResult.NetworkFailed
+    }
 }

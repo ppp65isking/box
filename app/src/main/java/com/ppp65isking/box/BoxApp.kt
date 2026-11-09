@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
+import com.ppp65isking.box.data.AccessTokenResult
 import com.ppp65isking.box.data.DiscordClient
 import com.ppp65isking.box.data.GoogleClient
 import com.ppp65isking.box.data.GitHubClient
@@ -16,6 +17,8 @@ import com.ppp65isking.box.data.RedditAuthStore
 import com.ppp65isking.box.data.RedditClient
 import com.ppp65isking.box.data.SmsRepository
 import com.ppp65isking.box.data.SpotifyClient
+import com.ppp65isking.box.data.SteamClient
+import com.ppp65isking.box.data.SteamStore
 import com.ppp65isking.box.data.UiPrefs
 import com.ppp65isking.box.data.WeatherClient
 import com.ppp65isking.box.data.buildAuthUrl
@@ -85,6 +88,10 @@ class BoxApp : Application() {
 
     val discordClient: DiscordClient by lazy { DiscordClient(okHttp) }
 
+    val steamStore: SteamStore by lazy { SteamStore(this) }
+
+    val steamClient: SteamClient by lazy { SteamClient(okHttp) }
+
     private val oauthScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _oauthVersion = MutableStateFlow(0L)
@@ -117,16 +124,23 @@ class BoxApp : Application() {
      * A usable access token for the service, refreshing it when it
      * expired. Null when the user has to sign in again — in that case
      * the dead grant is cleared, so screens fall back to "Connect"
-     * instead of showing a stale signed-in state. Safe from any thread.
+     * instead of showing a stale signed-in state. A network failure
+     * while refreshing does NOT clear the grant: the next load retries
+     * instead of signing the user out over a blip. Safe from any thread.
      */
     suspend fun accessToken(service: OAuthService): String? =
         withContext(Dispatchers.IO) {
-            val token = ensureAccessToken(service, oauthStore, okHttp)
-            if (token == null && oauthStore.accessToken(service) != null) {
-                oauthStore.clearTokens(service)
-                bumpOAuthVersion()
+            when (val result = ensureAccessToken(service, oauthStore, okHttp)) {
+                is AccessTokenResult.Ok -> result.token
+                AccessTokenResult.NeedsSignIn -> {
+                    if (oauthStore.accessToken(service) != null) {
+                        oauthStore.clearTokens(service)
+                        bumpOAuthVersion()
+                    }
+                    null
+                }
+                AccessTokenResult.NetworkFailed -> null
             }
-            token
         }
 
     /**

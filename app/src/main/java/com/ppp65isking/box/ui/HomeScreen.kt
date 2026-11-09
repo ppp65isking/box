@@ -33,9 +33,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -77,6 +78,9 @@ import com.ppp65isking.box.ui.components.OnResume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 private sealed interface WeatherState {
     data object Loading : WeatherState
@@ -198,11 +202,13 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            // Weather card.
+            // Greeting hero: time-based greeting + date + one line of
+            // weather, no card chrome. Tapping the weather line retries
+            // it when it failed to load.
             item(span = { GridItemSpan(4) }) {
-                WeatherCard(
-                    state = weatherState,
-                    onRetry = {
+                GreetingHero(
+                    weatherState = weatherState,
+                    onWeatherRetry = {
                         scope.launch {
                             weatherState = WeatherState.Loading
                             weatherState = withContext(Dispatchers.IO) {
@@ -217,10 +223,10 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
                     },
                 )
             }
-            // Steps card — hidden when Health Connect is off.
+            // Steps, one compact row — hidden when Health Connect is off.
             if (healthConnect) {
                 item(span = { GridItemSpan(4) }) {
-                    StepsCard(
+                    StepsRow(
                         state = stepsState,
                         allowAttempted = allowAttempted,
                         onRequestPermission = {
@@ -279,7 +285,7 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
             // Search + category chips.
             item(span = { GridItemSpan(4) }) {
                 Column {
-                    OutlinedTextField(
+                    TextField(
                         value = query,
                         onValueChange = { query = it },
                         placeholder = { Text("Search your apps") },
@@ -288,6 +294,10 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(24.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -337,6 +347,17 @@ fun HomeScreen(onOpenHub: (String) -> Unit) {
                     )
                 }
             } else {
+                item(span = { GridItemSpan(4) }) {
+                    Text(
+                        text = when {
+                            query.isNotBlank() -> "Results"
+                            category != null -> category.label
+                            else -> "All apps"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
                 items(filtered, key = { it.entry.name }) { item ->
                     AppGridCell(item = item, onClick = { launch(item) })
                 }
@@ -363,20 +384,46 @@ private val Category.label: String
         Category.OTHER -> "More"
     }
 
+/** The top of Home: a time-based greeting, today's date, and one line
+ *  of weather — no card chrome. Tapping the weather line retries it
+ *  when it failed to load. */
 @Composable
-private fun WeatherCard(state: WeatherState, onRetry: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+private fun GreetingHero(state: WeatherState, onWeatherRetry: () -> Unit) {
+    val hour = LocalTime.now().hour
+    val greeting = when (hour) {
+        in 5..11 -> "Good morning"
+        in 12..16 -> "Good afternoon"
+        in 17..21 -> "Good evening"
+        else -> "Good night"
+    }
+    val dateLine = LocalDate.now()
+        .format(DateTimeFormatter.ofPattern("EEEE, MMM d"))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+    ) {
+        Text(
+            text = greeting,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = dateLine,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
             when (state) {
                 is WeatherState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Checking the weather in Woburn…")
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Checking the weather…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 is WeatherState.Ok -> {
                     val weather = state.weather
@@ -388,45 +435,33 @@ private fun WeatherCard(state: WeatherState, onRetry: () -> Unit) {
                         },
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(20.dp),
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "${weather.tempF}°F in Woburn",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = "${weather.label} · ${weather.humidity}% humidity · " +
-                                "${weather.windKph.toInt()} km/h wind",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${weather.tempF}°F · ${weather.label} in Woburn",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 is WeatherState.Error -> {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Weather didn't load",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = state.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Button(onClick = onRetry) { Text("Retry") }
+                    Text(
+                        text = "Weather didn't load — tap to retry",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable { onWeatherRetry() },
+                    )
                 }
             }
         }
     }
 }
 
+/** Steps as one compact row instead of a big card. Same states as
+ *  before: count, permission prompt (with the Health Connect settings
+ *  fallback when the popup does nothing), unavailable, error. */
 @Composable
-private fun StepsCard(
+private fun StepsRow(
     state: HealthConnectHelper.StepsResult?,
     allowAttempted: Boolean,
     onRequestPermission: () -> Unit,
@@ -437,31 +472,31 @@ private fun StepsCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = Icons.Filled.DirectionsWalk,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(32.dp),
             )
             Spacer(modifier = Modifier.width(12.dp))
             when (state) {
                 null -> {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(12.dp))
                     Text("Checking today's steps…")
                 }
                 is HealthConnectHelper.StepsResult.Ok -> {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "${state.steps} steps today",
-                            style = MaterialTheme.typography.headlineSmall,
+                            text = "${state.steps} steps",
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text = "From Health Connect",
+                            text = "today · Health Connect",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -483,22 +518,19 @@ private fun StepsCard(
                         if (allowAttempted) {
                             Text(
                                 text = "The popup didn't grant access — tap " +
-                                    "'Health Connect settings' below and " +
-                                    "allow Steps there instead.",
+                                    "'Health Connect settings' and allow Steps there.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Button(onClick = onRequestPermission) { Text("Allow") }
                         TextButton(onClick = onOpenHealthConnect) {
                             Text("Health Connect settings")
                         }
                     }
+                    Button(onClick = onRequestPermission) { Text("Allow") }
                 }
                 is HealthConnectHelper.StepsResult.Unavailable -> {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Steps aren't available",
                             style = MaterialTheme.typography.titleMedium,
@@ -512,12 +544,11 @@ private fun StepsCard(
                     }
                 }
                 is HealthConnectHelper.StepsResult.Error -> {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Couldn't read steps right now.",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
+                    Text(
+                        text = "Couldn't read steps right now.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
                     TextButton(onClick = onRetry) { Text("Retry") }
                 }
             }

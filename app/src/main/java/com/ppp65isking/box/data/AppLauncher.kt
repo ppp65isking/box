@@ -67,6 +67,7 @@ private val HUB_BY_PACKAGE = mapOf(
     "com.google.android.gm" to "google",
     "com.spotify.music" to "spotify",
     "com.discord" to "discord",
+    "com.valvesoftware.android.steam.community" to "steam",
 )
 
 fun hubForPackage(packageName: String): String? = HUB_BY_PACKAGE[packageName]
@@ -80,6 +81,7 @@ fun hubForEntry(entry: AppEntry): String? =
             "gmail" -> "google"
             "spotify" -> "spotify"
             "discord" -> "discord"
+            "steam" -> "steam"
             else -> null
         }
 

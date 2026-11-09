@@ -62,6 +62,7 @@ import com.ppp65isking.box.ui.RedditScreen
 import com.ppp65isking.box.ui.SetupScreen
 import com.ppp65isking.box.ui.SmsScreen
 import com.ppp65isking.box.ui.SpotifyScreen
+import com.ppp65isking.box.ui.SteamScreen
 import com.ppp65isking.box.ui.theme.BoxTheme
 
 private enum class Destination(
@@ -180,6 +181,7 @@ private fun BoxNav() {
                     "google" -> GoogleScreen()
                     "spotify" -> SpotifyScreen()
                     "discord" -> DiscordScreen()
+                    "steam" -> SteamScreen()
                     "setup" -> SetupScreen()
                     else -> when (destination) {
                         Destination.HOME -> HomeScreen(onOpenHub = { secondary = it })
