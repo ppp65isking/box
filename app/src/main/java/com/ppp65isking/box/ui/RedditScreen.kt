@@ -24,7 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import com.ppp65isking.box.ui.components.BoxHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -93,7 +93,7 @@ fun RedditScreen() {
     LaunchedEffect(Unit) { load() }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(title = { Text("Reddit") })
+        BoxHeader("Reddit")
         Row(
             modifier = Modifier
                 .fillMaxWidth()

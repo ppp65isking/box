@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import com.ppp65isking.box.ui.components.BoxHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -22,7 +22,7 @@ import com.ppp65isking.box.data.openUrl
 @Composable
 fun MoreScreen(onNavigate: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(title = { Text("More") })
+        BoxHeader("More")
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             Text(
                 text = "Browse",

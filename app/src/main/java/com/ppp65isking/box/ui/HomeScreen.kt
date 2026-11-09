@@ -68,6 +68,7 @@ import com.ppp65isking.box.data.resolveEntry
 import com.ppp65isking.box.model.Category
 import com.ppp65isking.box.model.WeatherNow
 import com.ppp65isking.box.ui.components.AppIcon
+import com.ppp65isking.box.ui.components.BoxHeader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -156,19 +157,7 @@ fun HomeScreen() {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Compact header — the full TopAppBar was too tall and empty.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Box",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
-        }
+        BoxHeader("Box")
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),

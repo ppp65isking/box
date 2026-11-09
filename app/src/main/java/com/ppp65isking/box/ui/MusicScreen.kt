@@ -25,7 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import com.ppp65isking.box.ui.components.BoxHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -124,7 +124,7 @@ fun MusicScreen() {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(title = { Text("Music") })
+        BoxHeader("Music")
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             OutlinedTextField(
                 value = query,

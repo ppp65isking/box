@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import com.ppp65isking.box.ui.components.BoxHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,7 +50,7 @@ fun InboxScreen() {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(title = { Text("Inbox") })
+        BoxHeader("Inbox")
         if (!listenerEnabled) {
             NotificationAccessCard(modifier = Modifier.padding(16.dp))
         } else {
