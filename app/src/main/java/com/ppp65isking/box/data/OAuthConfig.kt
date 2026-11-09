@@ -26,7 +26,7 @@ object OAuthConfig {
     const val SPOTIFY_CLIENT_ID: String = ""
 
     /** Discord application ID (the OAuth2 client ID). */
-    const val DISCORD_CLIENT_ID: String = ""
+    const val DISCORD_CLIENT_ID: String = "1569326730638786754"
 
     /** Reddit "installed app" client ID, for app-only search OAuth. */
     const val REDDIT_CLIENT_ID: String = ""
