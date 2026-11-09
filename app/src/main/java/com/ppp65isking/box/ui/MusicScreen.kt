@@ -80,6 +80,9 @@ fun MusicScreen() {
         scope.launch {
             state = withContext(Dispatchers.IO) {
                 runCatching {
+                    // Fresh installs have no visitorData yet, and search
+                    // answers with nothing without it — prime it first.
+                    app.innerTube.ensureVisitorData()
                     val response = app.innerTube.search(
                         query,
                         InnerTubeClient.SearchParams.SONGS,

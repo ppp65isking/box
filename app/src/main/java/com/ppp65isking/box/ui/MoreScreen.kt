@@ -2,14 +2,23 @@ package com.ppp65isking.box.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import com.ppp65isking.box.BoxApp
 import com.ppp65isking.box.ui.components.BoxHeader
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +48,13 @@ fun MoreScreen(onNavigate: (String) -> Unit) {
             MoreRow(title = "Messages", subtitle = "Your SMS conversations") {
                 onNavigate("sms")
             }
+            Text(
+                text = "Setup",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+            RedditAppIdField()
             Text(
                 text = "Coming tomorrow",
                 style = MaterialTheme.typography.titleMedium,
@@ -83,6 +99,41 @@ fun MoreScreen(onNavigate: (String) -> Unit) {
                 openUrl(context, "https://github.com/ppp65isking/box")
             }
         }
+    }
+}
+
+@Composable
+private fun RedditAppIdField() {
+    val context = LocalContext.current
+    val app = context.applicationContext as BoxApp
+    var clientId by remember { mutableStateOf(app.redditAuthStore.clientId.orEmpty()) }
+    var saved by remember { mutableStateOf(false) }
+    Text(
+        text = "Reddit search needs a free app ID — Reddit blocks anonymous " +
+            "search. Create an \"installed app\" at reddit.com/prefs/apps " +
+            "(name it Box, no redirect needed) and paste its client ID here. " +
+            "It's public, not a password.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    OutlinedTextField(
+        value = clientId,
+        onValueChange = { clientId = it.trim(); saved = false },
+        placeholder = { Text("Reddit client ID") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    Button(
+        onClick = {
+            app.redditAuthStore.clientId = clientId.ifBlank { null }
+            app.redditAuthStore.accessToken = null
+            saved = true
+        },
+        enabled = clientId.isNotBlank(),
+    ) {
+        Text(if (saved) "Saved" else "Save Reddit app ID")
     }
 }
 

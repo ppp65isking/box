@@ -3,6 +3,7 @@ package com.ppp65isking.box
 import android.app.Application
 import com.ppp65isking.box.data.GitHubClient
 import com.ppp65isking.box.data.HealthConnectHelper
+import com.ppp65isking.box.data.RedditAuthStore
 import com.ppp65isking.box.data.RedditClient
 import com.ppp65isking.box.data.SmsRepository
 import com.ppp65isking.box.data.WeatherClient
@@ -37,7 +38,9 @@ class BoxApp : Application() {
 
     val gitHubClient: GitHubClient by lazy { GitHubClient(okHttp) }
 
-    val redditClient: RedditClient by lazy { RedditClient(okHttp) }
+    val redditAuthStore: RedditAuthStore by lazy { RedditAuthStore(this) }
+
+    val redditClient: RedditClient by lazy { RedditClient(okHttp, redditAuthStore) }
 
     val weatherClient: WeatherClient by lazy { WeatherClient(okHttp) }
 
